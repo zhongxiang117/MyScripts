@@ -6,6 +6,7 @@ try:
 except ImportError:
     # version 2
     import openbabel
+import numpy as np
 
 import os
 import sys
@@ -18,6 +19,7 @@ FEATURES = [
     'version 0.3.0  : add nonbonded fragment, usually, salts, filtration',
     'version 0.4.0  : add bool_nofrags_check',
     'version 0.5.0  : add more controls on RotorSearch conformer generations method',
+    'version 0.6.0  : add RMSD calculation',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -27,6 +29,185 @@ SUPPORTED_FFS = [i.split()[0].lower() for i in _ffs]
 OBConv = openbabel.OBConversion()
 _fms = OBConv.GetSupportedInputFormat()
 SUPPORTED_FORMATS = [i.split()[0].lower() for i in _fms]
+
+
+class RMSDClosedFormOBMols:
+    """Calculate RMSD for obmols by using closedForm algorithm
+
+    Args:
+        obmols(List[obmol, ]): the first obmol will be used for reference
+        vl : 2D n*3f : List[[float, float, float]] : Left input matrix
+        vr : 2D n*3f : List[[float, float, float]] : Right input matrix
+        vl = BestFit * vr
+        Left set matrix is used for reference
+
+    Methods:
+        centroid
+        calc_N
+        calc_left_rotM
+        calc_bestfit
+
+    Reference:
+        Closed-form solution of absolute orientation using unit quaternions
+        Berthold K. P. Horn
+        J. Opt. Soc. Am. A 4, 629-642 (1987)
+    """
+    def __init__(self,obmols=None,vl=None,vr=None,*args,**kwargs):
+        self.obmols = obmols if obmols else []
+        self.vl = vl
+        self.vr = vr
+
+    def run(self,obmols=None):
+        if obmols is None: obmols = self.obmols
+        if len(obmols) < 2: return []
+
+        # reference mol
+        vl = [[a.GetX(),a.GetY(),a.GetZ()] for a in openbabel.OBMolAtomIter(obmols[0])]
+        cvl,tl = self.centroid(vl)
+
+        rmsdlist = [0.0, ]
+        for mol in obmols[1:]:
+            vr = [[a.GetX(),a.GetY(),a.GetZ()] for a in openbabel.OBMolAtomIter(mol)]
+            fit = self.calc_bestfit(cvl,vr,centroid_vl=False)
+            rmsdlist.append(self.calc_rmsd(cvl, fit))
+        return rmsdlist
+
+    def calc_rmsd(self,vl,vr):
+        """calculate overall RMSD for input vl and vr"""
+        if len(vl) != len(vr): return 0.0
+        rmsd = 0.0
+        for i in range(len(vl)):
+            t = [vl[i][j]-vr[i][j] for j in range(3)]
+            rmsd += sum([k*k for k in t])
+        return pow(rmsd,0.5)
+
+    def calc_bestfit(self,vl=None,vr=None,centroid=True,centroid_vl=True,centroid_vr=True):
+        """calc best fit structure
+        both vl(reference) and vr(target) can be reused
+        centroid: whether centroid results or not
+        """
+        if vl is None: vl = self.vl
+        if vr is None: vr = self.vr
+        if centroid_vl:
+            cvl,tl = self.centroid(vl)
+        else:
+            cvl = vl
+            tl = [0.0, 0.0, 0.0]
+        if centroid_vr:
+            cvr,tr = self.centroid(vr)
+        else:
+            cvr = vr
+            tr = [0.0, 0.0, 0.0]
+        M = self.calc_left_rotM(cvl,cvr)
+        fit = []
+        for v in cvr:
+            rx = v[0]*M[0][0] + v[1]*M[1][0] + v[2]*M[2][0]
+            ry = v[0]*M[0][1] + v[1]*M[1][1] + v[2]*M[2][1]
+            rz = v[0]*M[0][2] + v[1]*M[1][2] + v[2]*M[2][2]
+            fit.append([rx,ry,rz])
+        if not centroid:
+            for i in range(len(fit)):
+                fit[i][0] += tr[0]
+                fit[i][1] += tr[1]
+                fit[i][2] += tr[2]
+        return fit
+
+    def centroid(self,v):
+        """calc centroid vector and translation vector"""
+        x = [i[0] for i in v]
+        y = [i[1] for i in v]
+        z = [i[2] for i in v]
+        t = len(v)
+        ax = sum(x) / t
+        ay = sum(y) / t
+        az = sum(z) / t
+        # care, do not use in-place operation
+        cv = [[0.0 for i in range(3)] for j in range(len(v))]
+        for i in range(t):
+            cv[i][0] = v[i][0] - ax
+            cv[i][1] = v[i][1] - ay
+            cv[i][2] = v[i][2] - az
+        return cv,(ax,ay,az)
+
+    def calc_N(self,vl,vr):
+        """calc 4x4 real symmetric N matrix"""
+        XxYx = 0.0
+        XxYy = 0.0
+        XxYz = 0.0
+        XyYx = 0.0
+        XyYy = 0.0
+        XyYz = 0.0
+        XzYx = 0.0
+        XzYy = 0.0
+        XzYz = 0.0
+        # careful of the sequence: X-r, Y-l
+        # for rotation l = Rr
+        for i,p in enumerate(vl):
+            XxYx += p[0] * vr[i][0]
+            XxYy += p[0] * vr[i][1]
+            XxYz += p[0] * vr[i][2]
+
+            XyYx += p[1] * vr[i][0]
+            XyYy += p[1] * vr[i][1]
+            XyYz += p[1] * vr[i][2]
+
+            XzYx += p[2] * vr[i][0]
+            XzYy += p[2] * vr[i][1]
+            XzYz += p[2] * vr[i][2]
+
+        N = [[0.0, 0.0, 0.0, 0.0] for i in range(4)]
+
+        N[0][0] = XxYx + XyYy + XzYz
+        N[0][1] = XyYz - XzYy
+        N[0][2] = XzYx - XxYz
+        N[0][3] = XxYy - XyYx
+
+        N[1][0] = N[0][1]
+        N[1][1] = XxYx - XyYy - XzYz
+        N[1][2] = XxYy + XyYx
+        N[1][3] = XzYx + XxYz
+
+        N[2][0] = N[0][2]
+        N[2][1] = N[1][2]
+        N[2][2] = -XxYx + XyYy - XzYz
+        N[2][3] = XyYz + XzYy
+
+        N[3][0] = N[0][3]
+        N[3][1] = N[1][3]
+        N[3][2] = N[2][3]
+        N[3][3] = -XxYx - XyYy + XzYz
+
+        return N
+
+    def calc_left_rotM(self,vl,vr):
+        """calc rotation matrix for vr*M,
+        quaternion is got from the vector which is corresponding to
+        largest positive eigenvalues
+
+        M  : 2D 3*3f : rotation matrix for vr, vr*M, in element-wise operation
+        """
+        N = self.calc_N(vl,vr)
+        values,vectors = np.linalg.eig(N)
+        ndx = np.where(values == max(values))
+        ndx = ndx[0][0]
+        # For numpy, eigenvectors are correspondingly put in column
+        # note, this vector has already been normalized
+        V = vectors[:,ndx]
+        M = [[0.0, 0.0, 0.0] for i in range(3)]
+
+        M[0][0] = 1 - 2 * (V[2]*V[2] + V[3]*V[3])
+        M[0][1] = 2 * (V[1]*V[2] - V[3]*V[0])
+        M[0][2] = 2 * (V[0]*V[3] + V[2]*V[0])
+
+        M[1][0] = 2 * (V[1]*V[2] + V[3]*V[0])
+        M[1][1] = 1 - 2 * (V[1]*V[1] + V[3]*V[3])
+        M[1][2] = 2 * (V[2]*V[3] - V[1]*V[0])
+
+        M[2][0] = 2 * (V[1]*V[3] - V[2]*V[0])
+        M[2][1] = 2 * (V[2]*V[3] + V[1]*V[0])
+        M[2][2] = 1 - 2 * (V[1]*V[1] + V[2]*V[2])
+
+        return M
 
 
 class ReadRawFile:
@@ -49,6 +230,7 @@ class ReadRawFile:
                 rs_confs_totnum=None,
                 rs_confs_selnum=None,
                 bool_confs_select_all=None,
+                bool_calc_rmsd=None,
                 *args,
                 **kwargs):
         self.filename = filename
@@ -60,6 +242,7 @@ class ReadRawFile:
         self.rs_confs_totnum = rs_confs_totnum if rs_confs_totnum else 20
         self.rs_confs_selnum = rs_confs_selnum if rs_confs_selnum else 3
         self.bool_confs_select_all = True if bool_confs_select_all is True else False
+        self.bool_calc_rmsd = True if bool_calc_rmsd is True else False
         if self.bool_confs_select_all:
             self.rs_confs_selnum = self.rs_confs_totnum
         if force_field is not None:
@@ -72,6 +255,9 @@ class ReadRawFile:
             self.force_field = None
         # openbabel miscellany, universally set to 'smi'
         OBConv.SetOutFormat('smi')
+        # hidden parameter for conformer generations
+        # filter out any energy difference less than this value, kcal/mol
+        self._energy_tol = 1.0
 
     def run(self,filename=None):
         curtime = time.time()
@@ -172,34 +358,64 @@ class ReadRawFile:
             obtmp = openbabel.OBMol(obmol)
             data = openbabel.OBPairData()
             data.SetAttribute('OBEnergy')
-            data.SetValue(str(ene))
+            data.SetValue('{:.4f}'.format(ene))
             obtmp.CloneData(data)
             setff.UpdateCoordinates(obtmp)
             obmollist.append(obtmp)
 
-        if not len(obmollist):
+        if len(obmollist) <= 1:
             # means done on initialization or before first N steps
             setff.UpdateCoordinates(obmol)
             return [obmol, ]
 
-        if len(obmollist) <= self.rs_confs_selnum:
-            return obmollist
-
         # sort obmollist from energy smallest to largest
         ndxlist = sorted(range(len(enelist)),key=lambda k: enelist[k])
-        obmollist = [obmollist[i] for i in ndxlist]
+        # do energy tolerance filtration
+        filterlist = [ndxlist[0], ]
+        for i in ndxlist[1:]:
+            if abs(enelist[i]-enelist[filterlist[-1]]) > self._energy_tol:
+                filterlist.append(i)
+        # update
+        obmollist = [obmollist[i] for i in filterlist]
+
+        if len(obmollist) <= self.rs_confs_selnum:
+            # consideration when bool_confs_select_all
+            if len(obmollist) and self.bool_calc_rmsd:
+                fn = RMSDClosedFormOBMols(obmols=obmollist)
+                rmsdlist = fn.run()
+                # implicitly linking
+                for i,obmol in enumerate(obmollist):
+                    data = openbabel.OBPairData()
+                    data.SetAttribute('OBRMSD')
+                    data.SetValue('{:.4f}'.format(rmsdlist[i]))
+                    obmol.CloneData(data)
+            return obmollist
 
         if self.rs_confs_selnum == 1:
             return [obmollist[0], ]
-        
+
         if self.rs_confs_selnum == 2:
             return [obmollist[0], obmollist[-1]]
-        
+
         dt = (len(obmollist) - 1) // (self.rs_confs_selnum - 1)
         reflist = list(range(0,len(obmollist),dt))
         if len(reflist) > self.rs_confs_selnum:
             reflist = reflist[:self.rs_confs_selnum]
-        return [obmollist[i] for i in reflist]
+
+        # update
+        obmollist = [obmollist[i] for i in reflist]
+
+        if self.bool_calc_rmsd:
+            fn = RMSDClosedFormOBMols(obmols=obmollist)
+            rmsdlist = fn.run()
+            # implicitly linking
+            for i,obmol in enumerate(obmollist):
+                data = openbabel.OBPairData()
+                data.SetAttribute('OBRMSD')
+                data.SetValue('{:.4f}'.format(rmsdlist[i]))
+                obmol.CloneData(data)
+
+        return obmollist
 
     def _f_gen3d_many_cg(self,setff,obmol):
         """generate conformers based on conjugate gradients search"""
@@ -423,7 +639,7 @@ def parsecmd():
         help='output file type, check by option: --show_supported_types',
     )
     parser.add_argument(
-        '--show_supported_ftypes',
+        '--show_supported_types',
         action='store_true',
         help='show supported file output types',
     )
@@ -454,6 +670,11 @@ def parsecmd():
         help='select all generated conformers, it will mute --rs_confs_selnum'
     )
     parser.add_argument(
+        '--bool_calc_rmsd',
+        action='store_true',
+        help='turn on calculate RMSD'
+    )
+    parser.add_argument(
         '--features',
         action='store_true',
         help='show development features'
@@ -464,7 +685,7 @@ def parsecmd():
         return {}
 
     args = parser.parse_args(sys.argv[1:])
-    if args.show_supported_ftypes:
+    if args.show_supported_types:
         print('Supported output file types:')
         print('; '.join(SUPPORTED_FORMATS))
         return {}

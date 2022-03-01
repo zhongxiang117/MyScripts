@@ -5,7 +5,8 @@ import sys
 import argparse
 
 FEATURES = [
-    'version 0.1.0     : Feb 23, 2022',
+    'version 0.1.0      : Feb 23, 2022',
+    'version 0.2.0      : add info on total memory',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -50,6 +51,7 @@ if args.features:
 
 # note: info is a str type, delimited by new line '\n'
 info = os.popen('ps aux | grep -i {:}'.format(args.pattern)).read()
+smem = float(os.popen('grep MemTotal /proc/meminfo').read().split()[-2])
 
 usage = []
 # format: USER  PID  %CPU  %MEM  TIME  COMMAND
@@ -69,6 +71,7 @@ if args.all:
     print('USER      PID      %CPU   %MEM   TIME    COMMAND')
     for i in usage:
         print('{:6}  {:10} {:5}  {:5}  {:6}  {:}'.format(*i))
-print('Sum: totcpu:{:.2f}%  totmem:{:.2f}%  tottime:{:}s'.format(totcpu,totmem,tottime))
+taken = smem*totmem / 1024.0 / 1024.0 / 100.0
+print('Sum: totcpu:{:.2f}%  totmem:{:.2f}%({:.2f}GB)  tottime:{:}s'.format(totcpu,totmem,taken,tottime))
 
 

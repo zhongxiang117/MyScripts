@@ -15,6 +15,8 @@ import argparse
 
 FEATURES = [
     'version 0.1.0  : Randomly choose molecules based on given database',
+    'version 0.2.0  : add support for DEFLATE compressed files, gz & tgz',
+    'version 0.3.0  : add option fileinfo',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -29,20 +31,37 @@ class ReadFileOBMols:
         filename(list): input file name
         fileobmols(List[openbabel.OBMol, ]):
     """
-    def __init__(self,filename=None,*args,**kwargs):
+    def __init__(self,filename=None,fileinfo=None,*args,**kwargs):
         self.filename = filename
+        self.fileinfo = True if fileinfo is True else False
 
     def run(self,filename=None):
+        print(f'Note: input file: {self.filename}')
+        if self.fileinfo:
+            print('Note: processing file info')
         curtime = time.time()
         if filename is None: filename = self.filename
-        self.fileobmols = self.readfile(filename)
+        if self.fileinfo:
+            self.fileobmols = []
+            self.atomnum = self.readfile(filename,True)
+        else:
+            self.fileobmols = self.readfile(filename)
+            self.atomnum = len(self.fileobmols)
         self.runtime = time.time() - curtime
 
-    def readfile(self,file):
+    def readfile(self,file,fileinfo=None):
         """read data from file based on extension"""
+        if file.endswith('.tgz'):
+            sfile = file.strip('.tgz')
+        elif file.endswith('.tar.gz'):
+            sfile = file.strip('.tar.gz')
+        elif file.endswith('.gz'):
+            sfile = file.strip('.gz')
+        else:
+            sfile = file
         bo = False
-        if '.' in file:
-            ext = file.split('.')[-1].lower()
+        if '.' in sfile:
+            ext = sfile.split('.')[-1].lower()
             if ext not in SUPPORTED_FORMATS: bo = True
         else:
             bo = True
@@ -52,6 +71,15 @@ class ReadFileOBMols:
 
         obconv = openbabel.OBConversion()
         obconv.SetInFormat(ext)
+
+        if fileinfo:
+            atomnum = 0
+            obmol = openbabel.OBMol()
+            bo = obconv.ReadFile(obmol,file)
+            while bo:
+                atomnum += 1
+                bo = obconv.Read(obmol)
+            return atomnum
 
         obmollist = []
         obmol = openbabel.OBMol()
@@ -72,6 +100,8 @@ class RandChooseMols(ReadFileOBMols):
     def run(self):
         super().run()
         self.obmols = []
+        print(f'Note: number of total molecules: {self.atomnum}')
+        print('Note: ReadFile runtime cost: {:.2f}s'.format(self.runtime))
         if not self.fileobmols: return
         if self.n > len(self.fileobmols):
             print(f'Warning: too many choices: ({self.n} > {len(self.fileobmols)})')
@@ -136,6 +166,11 @@ def parsecmd():
         '-n',
         type=int,
         help='number of choose'
+    )
+    parser.add_argument(
+        '--fileinfo',
+        action='store_true',
+        help='show necessary info of input and exit'
     )
     parser.add_argument(
         '--fname',

@@ -9,6 +9,7 @@ import collections
 FEATURES = [
     'version 0.1.0  : CoreEnumeration, Sep 19th, 2022',
     'version 0.2.0  : add CoreEnumeration.write method',
+    'version 0.3.0  : make write more powerful',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -16,7 +17,12 @@ VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
 
 class CoreEnumeration:
     def __init__(self,core_file=None,sub_files=None,filename=None,*args,**kws):
-        self.filename = filename if filename else 'mols-core-enum.sdf'
+        if filename:
+            self.filename = filename
+            self.filebase = os.path.splitext(filename)[0]
+        else:
+            self.filename = 'mols-core-enum.sdf'
+            self.filebase = 'mols-core-enum'
         if os.path.isfile(core_file):
             self.nice = True
             core = Chem.MolFromMolFile(core_file)
@@ -47,6 +53,19 @@ class CoreEnumeration:
         else:
             print(f'Fatal: not a file: exiting: {core_file}')
             self.nice = False
+
+    def gen_new_file(self,filename=None):
+        if not filename: filename = self.filebase + '.sdf'
+        if os.path.isfile(filename):
+            base,ext = os.path.splitext(filename)
+            i = 1
+            while True:
+                new = f'{base}-{i}{ext}'
+                if not os.path.isfile(new): break
+                i += 1
+        else:
+            new = filename
+        return new
 
     def __next__(self):
         if not self.nice: raise StopIteration
@@ -80,9 +99,7 @@ class CoreEnumeration:
                 bondedinfo[d].append((t,e.GetAtomicNum()))
         return bondedinfo
 
-    def write(self,mols=None,num=None,filename=None):
-        """write mols or number of "self.mols" to filename"""
-        if not filename: filename = self.filename
+    def _precondition(self,mols=None,num=None):
         if mols:
             if isinstance(mols,list):
                 mols = [m for m in mols if isinstance(m, Chem.Mol)]
@@ -100,85 +117,173 @@ class CoreEnumeration:
                         mols.append(next(self._it))
                     except StopIteration:
                         break
+        return mols
+    
+    def write_sdf_lazyeval(self,num=None,filename=None):
+        """write number of "self.mols" to SDF filename, lazy evaluation"""
+        if not filename: filename = self.gen_new_file(self.filebase+'.sdf')
+        w = Chem.SDWriter(filename)
+        if num:
+            print(f'Note: writing {num} mols to SDF {filename}')
+            for i in range(num):
+                try:
+                    m = next(self._it)
+                except StopIteration:
+                    break
+                else:
+                    w.write(m)
+        else:
+            print(f'Note: writing all mols to SDF {filename}')
+            while True:
+                try:
+                    m = next(self._it)
+                except StopIteration:
+                    break
+                else:
+                    w.write(m)
+        w.close()
+
+    def write_smiles_lazyeval(self,num=None,filename=None):
+        """write number of "self.mols" to SMILES filename, lazy evaluation"""
+        if not filename: filename = self.gen_new_file(self.filebase+'.smiles')
+        w = open(filename,'wt')
+        if num:
+            print(f'Note: writing {num} SMILES to {filename}')
+            for i in range(num):
+                try:
+                    m = next(self._it)
+                except StopIteration:
+                    break
+                else:
+                    w.write(Chem.MolToSmiles(m))
+                    w.write('\n')
+        else:
+            print(f'Note: writing all SMILES to {filename}')
+            while True:
+                try:
+                    m = next(self._it)
+                except StopIteration:
+                    break
+                else:
+                    w.write(Chem.MolToSmiles(m))
+                    w.write('\n')
+        w.close()
+
+    def write_smiles(self,mols=None,num=None,filename=None):
+        """write mols or number of "self.mols" to SMILES filename"""
+        if not filename: filename = self.gen_new_file(self.filebase+'.smiles')
+        mols = self._precondition(mols,num)
         if mols:
-            print(f'Note: writing {len(mols)} mols to {filename}')
+            print(f'Note: writing {len(mols)} SMILES to {filename}')
+            smiles = [Chem.MolToSmiles(m) for m in mols]
+            with open(filename,'wt') as f:
+                for s in smiles:
+                    f.write(s)
+                    f.write('\n')
+        else:
+            print('Fatal: write: no valid inputs: exit')
+
+    def write_sdf(self,mols=None,num=None,filename=None):
+        """write mols or number of "self.mols" to SDF filename"""
+        if not filename: filename = self.gen_new_file(self.filebase+'.sdf')
+        mols = self._precondition(mols,num)
+        if mols:
+            print(f'Note: writing {len(mols)} mols to SDF {filename}')
             w = Chem.SDWriter(filename)
             for i in mols:
                 w.write(i)
             w.close()
         else:
             print('Fatal: write: no valid inputs: exit')
-
+    
     def _run(self):
+        """chain all iterators, python>=3.5"""
         for n in range(1,self.core_dummynum+1):
-            for p in itertools.combinations(range(self.core_dummynum),r=n):
-                for g in itertools.permutations(range(self.subs_dummynum),r=n):
-                    # caution: concatenating on sequence
-                    fullsmarts = self.core_smarts + '.' + '.'.join([self.subs_smartss[t] for t in g])
-                    mol = Chem.MolFromSmarts(fullsmarts)
-                    fullbondedinfo = self.calc_dummy_atoms_idx_and_bonded_info(mol)
-                    fullitems = list(fullbondedinfo.items())
-                    bo = True
-                    for i in range(n):
-                        beg = fullitems[p[i]]
-                        end = fullitems[i+self.core_dummynum]   # important: g's are in sequence
-                        for z in beg[1]:
-                            for k in end[1]:
-                                if z[1] == 8 and k[1] == 8:     # not allowed for Oxygen-Oxygen bond
-                                    bo = False
-                                    break
-                            if not bo:
+            yield from self.run_subn(n)
+
+    def run_subn(self,n,core_smarts=None,subs_smartss=None):
+        """substitute n dummy atoms on core molecule, lazy evaluation"""
+        if core_smarts:
+            core_dummynum = len(self.calc_dummy_atoms_idx_and_bonded_info(core_smarts))
+        else:
+            core_smarts = self.core_smarts
+            core_dummynum = self.core_dummynum
+        if subs_smartss:
+            subs_dummynum = len(subs_smartss)
+        else:
+            subs_smartss = self.subs_smartss
+            subs_dummynum = self.subs_dummynum
+        for p in itertools.combinations(range(core_dummynum),r=n):
+            for g in itertools.permutations(range(subs_dummynum),r=n):
+                # caution: concatenating on sequence
+                fullsmarts = core_smarts + '.' + '.'.join([subs_smartss[t] for t in g])
+                mol = Chem.MolFromSmarts(fullsmarts)
+                fullbondedinfo = self.calc_dummy_atoms_idx_and_bonded_info(mol)
+                fullitems = list(fullbondedinfo.items())
+                bo = True
+                for i in range(n):
+                    beg = fullitems[p[i]]
+                    end = fullitems[i+core_dummynum]   # important: g's are in sequence
+                    for z in beg[1]:
+                        for k in end[1]:
+                            if z[1] == 8 and k[1] == 8:     # not allowed for Oxygen-Oxygen bond
+                                bo = False
                                 break
                         if not bo:
                             break
-                    if bo:
-                        rwmol = Chem.RWMol(mol)
-                        for i in range(n):
-                            beg = fullitems[p[i]]
-                            end = fullitems[i+self.core_dummynum]   # important: g's are in sequence
-                            rwmol.AddBond(beg[0],end[0],Chem.BondType.SINGLE)
-                        # now replace left dummy atom to hydrogen
-                        if n < self.core_dummynum:
-                            left = [i for i in range(self.core_dummynum) if i not in p]
-                            for t in left:
-                                hydrogen = Chem.Atom('H')
-                                rwmol.ReplaceAtom(fullitems[t][0],hydrogen)
-                            lefthidx = [fullitems[t][0] for t in left]
-                        else:
-                            lefthidx = []
+                    if not bo:
+                        break
+                if not bo: continue
 
-                        # dummy atoms (will always be pair) are connected together
-                        bondedinfo = self.calc_dummy_atoms_idx_and_bonded_info(rwmol.GetMol())
-                        totalitems = list(bondedinfo.items())
-                        visited = set()
-                        reflist = []
-                        for i in range(len(totalitems)):
-                            if i in visited: continue
-                            for j in range(i+1,len(totalitems)):
-                                if totalitems[i][0] in [t[0] for t in totalitems[j][1]]:
-                                    visited.add(j)
-                                    reflist.append((i,j))
-                                    break
-                        for t in reflist:
-                            newitems = [totalitems[t[0]], totalitems[t[1]]]
-                            # caution: mutual bond,
-                            # for example: a is the neighbor b, b is also the neighbor of a
-                            beg = [i[0] for i in newitems[0][1] if i[0] != newitems[1][0]]
-                            endatomidx = [i[0] for i in newitems[1][1] if i[0] != newitems[0][0]][0]
-                            for i in beg:
-                                rwmol.AddBond(i,endatomidx,Chem.BondType.SINGLE)
+                rwmol = Chem.RWMol(mol)
+                for i in range(n):
+                    beg = fullitems[p[i]]
+                    end = fullitems[i+core_dummynum]   # important: g's are in sequence
+                    rwmol.AddBond(beg[0],end[0],Chem.BondType.SINGLE)
+                # now replace left dummy atom to hydrogen
+                if n < core_dummynum:
+                    left = [i for i in range(core_dummynum) if i not in p]
+                    for t in left:
+                        hydrogen = Chem.Atom('H')
+                        rwmol.ReplaceAtom(fullitems[t][0],hydrogen)
+                    lefthidx = [fullitems[t][0] for t in left]
+                else:
+                    lefthidx = []
 
-                        # pay attention on sequence, from the end to beginning
-                        leftdummyidx = [i[0] for i in totalitems]
-                        for i in sorted(lefthidx+leftdummyidx,reverse=True):
-                            rwmol.RemoveAtom(i)
+                # dummy atoms (will always be pair) are connected together
+                bondedinfo = self.calc_dummy_atoms_idx_and_bonded_info(rwmol.GetMol())
+                totalitems = list(bondedinfo.items())
+                visited = set()
+                reflist = []
+                for i in range(len(totalitems)):
+                    if i in visited: continue
+                    for j in range(i+1,len(totalitems)):
+                        if totalitems[i][0] in [t[0] for t in totalitems[j][1]]:
+                            visited.add(j)
+                            reflist.append((i,j))
+                            break
+                for t in reflist:
+                    newitems = [totalitems[t[0]], totalitems[t[1]]]
+                    # caution: mutual bond,
+                    # for example: a is the neighbor b, b is also the neighbor of a
+                    beg = [i[0] for i in newitems[0][1] if i[0] != newitems[1][0]]
+                    endatomidx = [i[0] for i in newitems[1][1] if i[0] != newitems[0][0]][0]
+                    for i in beg:
+                        rwmol.AddBond(i,endatomidx,Chem.BondType.SINGLE)
 
-                        yield rwmol.GetMol()
+                # pay attention on sequence, from the end to beginning
+                leftdummyidx = [i[0] for i in totalitems]
+                for i in sorted(lefthidx+leftdummyidx,reverse=True):
+                    rwmol.RemoveAtom(i)
 
+                yield rwmol.GetMol()
 
-ce = CoreEnumeration(core_file='imp-core-sub-O.sdf',sub_files='imp-sub.sdf')
+    def filter(self,begin_bondedinfo,end_bondedinfo):
+        pass
+
+ce = CoreEnumeration(core_file='imp-core-sub-N.sdf',sub_files='imp-sub.sdf')
 #ce._run()
-ce.write(num=1000)
+ce.write_sdf_lazyeval(num=10000000)
 
 
 

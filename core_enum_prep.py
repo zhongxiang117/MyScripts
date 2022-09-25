@@ -12,6 +12,8 @@ FEATURES = [
     'version 0.3.0  : make write more powerful',
     'version 0.4.0  : add attribute CoreEnumeration.not_allowed_atomic_pairs',
     'version 0.5.0  : add more powerful class ScaffoldEnumeration',
+    'version 0.6.0  : fix minor problems on `write` methods',
+    'version 0.7.0  : add CoreEnumeration.print_settings method', 
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -30,7 +32,7 @@ class CoreEnumeration:
             self.filebase = 'mols-core-enum'
 
         if core_file is None:
-            self.core_smarts = []
+            self.core_smarts = ''
             self.nice = False
         elif os.path.isfile(core_file):
             core = Chem.MolFromMolFile(core_file)
@@ -109,6 +111,12 @@ class CoreEnumeration:
         if self.nice:
             self._it = self._run()
 
+    def print_settings(self):
+        print(f'Note: Setting: core_smarts: {self.core_smarts}')
+        print(f'Note: Setting: subs_smartss:')
+        for i in self.subs_smartss: print('  > ',i)
+        print(f'Note: Setting: not_allowed_atomic_pairs: {self.not_allowed_atomic_pairs}')
+
     def gen_new_file(self,filename=None):
         if not filename: filename = self.filebase + '.sdf'
         if os.path.isfile(filename):
@@ -176,52 +184,64 @@ class CoreEnumeration:
 
     def write_sdf_lazyeval(self,num=None,filename=None):
         """write number of "self.mols" to SDF filename, lazy evaluation"""
+        if not self.nice:
+            print('Fatal: wrong setting: nothing to be written')
+            return
         if not filename: filename = self.gen_new_file(self.filebase+'.sdf')
+        print(f'Note: lazy evaluation: writing mols to SDF {filename}')
         w = Chem.SDWriter(filename)
         if num:
-            print(f'Note: writing {num} mols to SDF {filename}')
             for i in range(num):
                 try:
                     m = next(self._it)
                 except StopIteration:
                     break
                 else:
+                    i += 1
                     w.write(m)
         else:
-            print(f'Note: writing all mols to SDF {filename}')
+            i = 0
             while True:
                 try:
                     m = next(self._it)
                 except StopIteration:
                     break
                 else:
+                    i += 1
                     w.write(m)
+        print(f'Note: in total writing {i} mols to SDF {filename}')
         w.close()
 
     def write_smiles_lazyeval(self,num=None,filename=None):
         """write number of "self.mols" to SMILES filename, lazy evaluation"""
+        if not self.nice:
+            print('Fatal: wrong setting: nothing to be written')
+            return
+        print(f'Note: lazy evaluation: writing mols to SMILES {filename}')
         if not filename: filename = self.gen_new_file(self.filebase+'.smiles')
         w = open(filename,'wt')
         if num:
-            print(f'Note: writing {num} SMILES to {filename}')
             for i in range(num):
                 try:
                     m = next(self._it)
                 except StopIteration:
                     break
                 else:
+                    i += 1
                     w.write(Chem.MolToSmiles(m))
                     w.write('\n')
         else:
-            print(f'Note: writing all SMILES to {filename}')
+            i = 0
             while True:
                 try:
                     m = next(self._it)
                 except StopIteration:
                     break
                 else:
+                    i += 1
                     w.write(Chem.MolToSmiles(m))
                     w.write('\n')
+        print(f'Note: in total writing {i} mols to SMILES {filename}')
         w.close()
 
     def write_smiles(self,mols=None,num=None,filename=None):
@@ -390,6 +410,7 @@ class ScaffoldEnumeration(CoreEnumeration):
             self.nice = False
 
         if self.nice:
+            self.print_settings()
             self._it = self._run()
 
 

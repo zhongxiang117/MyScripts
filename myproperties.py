@@ -8,6 +8,7 @@ import tkinter as tk
 
 # version 0.2.0     :   avoid filetype is type
 # version 0.3.0     :   add fsize for each type of files
+# version 0.4.0     :   correctly deal with the hidden file
 
 USAGE = """
 myproperties.py  [path]   :   show detail properties for file/dir
@@ -81,8 +82,10 @@ else:
         dbase = os.path.basename(dirpath)       # care when ./.good
         if dbase.startswith('.'):
             data['hidden_dir_num'] += 1
+            bo_hidden = True
         else:
             data['view_dir_num'] += 1
+            bo_hidden = False
         for f in filenames:
             file = os.path.join(dirpath,f)
             if not os.path.isfile(file): continue       # os.walk does not follow symlink
@@ -98,7 +101,7 @@ else:
             else:
                 data['unknown_file_num'] += 1
                 data['unknown_file_total_size'] += fsize
-            if base.startswith('.'):
+            if bo_hidden or base.startswith('.'):
                 data['hidden_file_num'] += 1
                 data['hidden_file_total_size'] += fsize
             else:

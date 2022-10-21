@@ -27,6 +27,9 @@ __all__ = [
     'myfunc_get_selected_resnums',
     'myfunc_get_selected_atom_charges_separated_by_molecule',
     'myfunc_get_selected_atom_charges_separated_by_entry',
+    'myfunc_ws_get_selected_atoms_ids',
+    'myfunc_ws_get_selected_atoms_separated_by_molecule',
+    'myfunc_ws_get_selected_atoms_separated_by_entry',
 ]
 
 
@@ -59,7 +62,7 @@ def myfunc_get_selected_molecules():
 
 
 def myfunc_get_selected_atoms_separated_by_molecule():
-    """3D: List[[[[atom, atom, ...], [atom, atom, ...], ...], ...], ...]"""
+    """3D: List[[[atom, atom, ...], [atom, atom, ...], ...], ...]"""
     mols = myfunc_get_selected_molecules()
     atoms = [[[i for i in m.atom] for m in s] for s in mols]
     total = sum([sum([len(m) for m in s]) for s in atoms])
@@ -68,7 +71,7 @@ def myfunc_get_selected_atoms_separated_by_molecule():
 
 
 def myfunc_get_selected_atoms_separated_by_entry():
-    """2D: List[[[atom, atom, ...], ...], ...]"""
+    """2D: List[[atom, atom, ...], ...]"""
     mols = myfunc_get_selected_molecules()
     atoms = [[i for m in s for i in m.atom] for s in mols]
     total = sum([len(s) for s in atoms])
@@ -106,17 +109,35 @@ def myfunc_get_selected_resnums():
 
 
 def myfunc_get_selected_atom_charges_separated_by_molecule():
-    """3D: List[[[[float, float, ...], [float, float, ...], ...], ...], ...]"""
+    """3D: List[[[float, float, ...], [float, float, ...], ...], ...]"""
     full = myfunc_get_selected_atoms_separated_by_molecule()
     charges = [[[a.partial_charge for a in m] for m in s] for s in full]
     return charges
 
 
 def myfunc_get_selected_atom_charges_separated_by_entry():
-    """2D: List[[[float, float, ...], ...], ...]"""
+    """2D: List[[float, float, ...], ...]"""
     full = myfunc_get_selected_atoms_separated_by_entry()
     charges = [[a.partial_charge for a in m] for m in full]
     return charges
+
+
+def myfunc_ws_get_selected_atoms_ids():
+    """1D: List[int, int, ...]"""
+    aids = maestro.selected_atoms_get()
+    return [i-1 for i in aids]
+
+
+def myfunc_ws_get_selected_atoms_separated_by_molecule():
+    """3D: List[[[atom, atom, ...], [atom, atom, ...], ...], ...]"""
+    pass
+
+def myfunc_ws_get_selected_atoms_separated_by_entry():
+    """2D: List[[atom, atom, ...], ...]"""
+    atoms = myfunc_ws_get_selected_atoms_separated_by_molecule()
+    flatatoms = []
+    for a in atoms: flatatoms.extend(a)
+    return flatatoms
 
 
 

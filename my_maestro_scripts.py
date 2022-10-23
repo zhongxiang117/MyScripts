@@ -1,7 +1,7 @@
 """My Scripts for Schrodinger Maestro Usage
 
-Prefer syntax `from SCRIPTS import *`, then all customized functions
-will be starts with `myfunc_*`
+Prefer to using syntax `from SCRIPTS import *`, then all customized functions
+will be starting with `myfunc_*`
 """
 
 from schrodinger.maestro import maestro
@@ -9,6 +9,7 @@ from schrodinger.maestro import maestro
 FEATURES = [
     'version 0.1.0  : My Schrodinger Scripts, Oct 17th, 2022',
     'version 0.2.0  : add `title`s functions',
+    'version 0.3.0  : add selections for workspace',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -28,8 +29,8 @@ __all__ = [
     'myfunc_get_selected_atom_charges_separated_by_molecule',
     'myfunc_get_selected_atom_charges_separated_by_entry',
     'myfunc_ws_get_selected_atoms_ids',
-    'myfunc_ws_get_selected_atoms_separated_by_molecule',
-    'myfunc_ws_get_selected_atoms_separated_by_entry',
+    'myfunc_ws_get_selected_atoms_ids_detail',
+    'myfunc_ws_get_selected_atoms',
 ]
 
 
@@ -128,16 +129,49 @@ def myfunc_ws_get_selected_atoms_ids():
     return [i-1 for i in aids]
 
 
-def myfunc_ws_get_selected_atoms_separated_by_molecule():
-    """3D: List[[[atom, atom, ...], [atom, atom, ...], ...], ...]"""
-    pass
+def myfunc_ws_get_selected_atoms_ids_detail():
+    """1D: List[(eid,mid,aid), (eid,mid,aid), ...]"""
+    rows = myfunc_get_selected_atoms_separated_by_molecule()
+    mids = myfunc_ws_get_selected_atoms_ids()
+    # separate to sublist
+    totlist = [0]
+    for i,e in enumerate(rows):
+        totlist.append(totlist[i]+sum([len(m) for m in e]))
+    smids = sorted(mids)
+    slist = []
+    b = 0
+    for e in range(len(totlist)-1):
+        ls = []
+        while b < len(smids):
+            v = smids[b]
+            if v >= totlist[e+1]:
+                break
+            b += 1
+            ls.append(v-totlist[e])
+        slist.append(ls)
 
-def myfunc_ws_get_selected_atoms_separated_by_entry():
+    ids = []
+    for eid,mols,subs in zip(range(len(rows)),rows,slist):
+        srst = sorted(subs)
+        srst.append(-1)     # to avoid overflow
+        i = 0
+        offset = 0
+        for mid,atoms in enumerate(mols):
+            n = len(atoms)
+            for j in range(n):
+                if j == srst[i]-offset:
+                    ids.append((eid,mid,j))
+                    i += 1
+            offset += n
+    return ids
+
+
+def myfunc_ws_get_selected_atoms():
     """2D: List[[atom, atom, ...], ...]"""
-    atoms = myfunc_ws_get_selected_atoms_separated_by_molecule()
-    flatatoms = []
-    for a in atoms: flatatoms.extend(a)
-    return flatatoms
+    rows = myfunc_get_selected_atoms_separated_by_molecule()
+    ids = myfunc_ws_get_selected_atoms_ids_detail()
+    return [rows[i[0]][i[1]][i[2]] for i in ids]
+
 
 
 

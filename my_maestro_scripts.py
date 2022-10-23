@@ -2,6 +2,8 @@
 
 Prefer to using syntax `from SCRIPTS import *`, then all customized functions
 will be starting with `myfunc_*`
+
+Important: All returned entries are sorted by row_number values
 """
 
 from schrodinger.maestro import maestro
@@ -10,6 +12,7 @@ FEATURES = [
     'version 0.1.0  : My Schrodinger Scripts, Oct 17th, 2022',
     'version 0.2.0  : add `title`s functions',
     'version 0.3.0  : add selections for workspace',
+    'version 0.4.0  : add included functions for workspace',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -28,9 +31,11 @@ __all__ = [
     'myfunc_get_selected_resnums',
     'myfunc_get_selected_atom_charges_separated_by_molecule',
     'myfunc_get_selected_atom_charges_separated_by_entry',
-    'myfunc_ws_get_selected_atoms_ids',
+    'myfunc_ws_get_chosen_atoms_ids',
     'myfunc_ws_get_selected_atoms_ids_detail',
     'myfunc_ws_get_selected_atoms',
+    'myfunc_ws_get_included_atoms_ids_detail',
+    'myfunc_ws_get_included_atoms',
 ]
 
 
@@ -123,16 +128,13 @@ def myfunc_get_selected_atom_charges_separated_by_entry():
     return charges
 
 
-def myfunc_ws_get_selected_atoms_ids():
+def myfunc_ws_get_chosen_atoms_ids():
     """1D: List[int, int, ...]"""
     aids = maestro.selected_atoms_get()
     return [i-1 for i in aids]
 
 
-def myfunc_ws_get_selected_atoms_ids_detail():
-    """1D: List[(eid,mid,aid), (eid,mid,aid), ...]"""
-    rows = myfunc_get_selected_atoms_separated_by_molecule()
-    mids = myfunc_ws_get_selected_atoms_ids()
+def _calc_ids(rows,mids):
     # separate to sublist
     totlist = [0]
     for i,e in enumerate(rows):
@@ -166,12 +168,60 @@ def myfunc_ws_get_selected_atoms_ids_detail():
     return ids
 
 
+def myfunc_ws_get_selected_atoms_ids_detail():
+    """1D: List[(eid,mid,aid), (eid,mid,aid), ...]"""
+    rows = myfunc_get_selected_atoms_separated_by_molecule()
+    mids = myfunc_ws_get_chosen_atoms_ids()
+    return _calc_ids(rows,mids)
+
+
 def myfunc_ws_get_selected_atoms():
     """2D: List[[atom, atom, ...], ...]"""
     rows = myfunc_get_selected_atoms_separated_by_molecule()
-    ids = myfunc_ws_get_selected_atoms_ids_detail()
+    mids = myfunc_ws_get_chosen_atoms_ids()
+    ids = _calc_ids(rows,mids)
     return [rows[i[0]][i[1]][i[2]] for i in ids]
 
+
+def myfunc_ws_get_included_atoms_ids_detail():
+    """1D: List[(eid,mid,aid), (eid,mid,aid), ...]
+    
+    Caution:
+        By testing, the sequence of the included structures matters,
+        to eliminate this influence, the structures are sorted by their
+        row_number values, to keep the consistent with the selected functions
+    """
+    pt = maestro.project_table_get()
+    frows = [r for r in pt.included_rows]
+    fsts = [i.getStructure() for i in frows]
+    num = [i.row_number for i in frows]
+    fnum = sorted(range(len(num)),key=lambda t: num[t])
+    sts = [fsts[i] for i in fnum]
+    rows = [[[a for a in m.atom] for m in r.molecule] for r in sts]
+    print(f'Note: number of included entries: {len(sts)}')
+    print(f'Note: number of total included molecules: {sum([len(m) for m in rows])}')
+    total = sum([sum([len(m) for m in s]) for s in rows])
+    print(f'Note: number of total included atoms: {total}')
+    mids = myfunc_ws_get_chosen_atoms_ids()
+    return _calc_ids(rows,mids)
+
+
+def myfunc_ws_get_included_atoms():
+    """2D: List[[atom, atom, ...], ...]"""
+    pt = maestro.project_table_get()
+    frows = [r for r in pt.included_rows]
+    fsts = [i.getStructure() for i in frows]
+    num = [i.row_number for i in frows]
+    fnum = sorted(range(len(num)),key=lambda t: num[t])
+    sts = [fsts[i] for i in fnum]
+    rows = [[[a for a in m.atom] for m in r.molecule] for r in sts]
+    print(f'Note: number of included entries: {len(sts)}')
+    print(f'Note: number of total included molecules: {sum([len(m) for m in rows])}')
+    total = sum([sum([len(m) for m in s]) for s in rows])
+    print(f'Note: number of total included atoms: {total}')
+    mids = myfunc_ws_get_chosen_atoms_ids()
+    ids = _calc_ids(rows,mids)
+    return [rows[i[0]][i[1]][i[2]] for i in ids]
 
 
 

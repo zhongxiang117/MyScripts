@@ -131,6 +131,7 @@ def myfunc_get_selected_atom_charges_separated_by_entry():
 def myfunc_ws_get_chosen_atoms_ids():
     """1D: List[int, int, ...]"""
     aids = maestro.selected_atoms_get()
+    print(f'Note: workspace: number of chosen atoms: {len(aids)}')
     return [i-1 for i in aids]
 
 

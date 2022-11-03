@@ -6,7 +6,8 @@ import json
 import time
 import shutil
 
-# version 0.1.0     :    Nov 2nd, 2022
+# version 0.1.0     : Nov 2nd, 2022
+# version 0.2.0     : deal with repeats
 
 USAGE = """
     [python3] backup.py         :  backup `parse-*.drawio' files
@@ -50,7 +51,7 @@ rmlist = [
     'nvvp_workspace',
 ]
 
-
+print(f'Note: backing up folder: {start}')
 rstlist = []
 for (dirpath, dirnames, filenames) in os.walk(start):
     # cleanup dirnames, in-place
@@ -75,9 +76,8 @@ for file in rstlist:
 
 curdirs = [d for d in sorted(os.listdir()) if os.path.isdir(d)]
 objold = {}
-if os.path.isfile(parfile):
-    parold = parfile
-else:
+parold = parfile
+if not os.path.isfile(parold):
     for i in range(len(curdirs)-1,-1,-1):
         file = os.path.join(curdirs[i],parfile)
         if os.path.isfile(file):
@@ -97,7 +97,7 @@ for k in objnew:
         if objold[k]['size'] == objnew[k]['size'] and objold[k]['mtime'] == objnew[k]['mtime']:
             pass
         else:
-            repfiles.append(k)
+            repfiles.append(objold[k]['fbak'])
             newfiles.append(k)
     else:
         newfiles.append(k)
@@ -117,12 +117,23 @@ if repfiles:
 if newfiles:
     cwd = os.getcwd()
     for k in newfiles:
-        print(f'Note: backing up file: {k}')
-        shutil.copy(k,cwd)
+        base = os.path.basename(k)
+        if os.path.isfile(base):
+            i = 1
+            while True:
+                newbase = base + '-' + str(i)
+                if not os.path.isfile(newbase):
+                    break
+                i += 1
+            objnew[k]['fbak'] = newbase
+            print(f'Note: backing up file: {k} ++ {i}')
+            shutil.copy(k,os.path.join(cwd,newbase))
+        else:
+            print(f'Note: backing up file: {k}')
+            shutil.copy(k,cwd)
 
-
-with open(parfile,'w') as f:
-    json.dump(objnew,f,indent=4)
+    with open(parfile,'w') as f:
+        json.dump(objnew,f,indent=4)
 
 
 

@@ -13,11 +13,12 @@ import shutil
 #           recursively find files starting with `#identifier` under `start`,
 #           then based on the parameters stored in `par.json`, either got from
 #           `start` path or most-recently time-stamped folder, calculate lists
-#           `replist` (files need to be overwritten) and `newfiles` (files need
-#           to be firstly backed up), then create time-stamped folder for old
+#           `repfiles` (files need to be overwritten) and `newfiles` (files need
+#           to be first-timely backed up), then create time-stamped folder for old
 #           files in `replist` and update the new ones, and copy files in `newfiles`.
 #           Specially, files defined in `parfile` will always exist under `cwd`;
 #           folders defined in `rmlist` will be excluded.
+# version 0.4.0     : keep the track of all backup records
 
 USAGE = """
     [python3] backup.py         :  backup `parse-*.drawio' files
@@ -145,25 +146,28 @@ if newfiles:
             print(f'Note: backing up file: {k}')
             shutil.copy(k,cwd)
 
+        # keep the track of all files
+        objold.update({k:objnew[k]})
+
     # double check
-    for k in objnew:
+    for k in objold:
         cfp = None
         cfn = None
-        if 'fbak' in objnew[k]:
-            if not os.path.isfile(objnew[k]['fbak']):
+        if 'fbak' in objold[k]:
+            if not os.path.isfile(objold[k]['fbak']):
                 cfp = k
-                cfn = objnew[k]['fbak']
+                cfn = objold[k]['fbak']
         else:
             base = os.path.basename(k)
             if not os.path.isfile(base):
                 cfp = k
                 cfn = base
-        if cfp:
+        if cfp and os.path.isfile(cfp):
             print(f'Warning: backup missing file: {cfp}  ++ {cfn}')
             shutil.copy(cfp,os.path.join(cwd,cfn))
 
     with open(parfile,'w') as f:
-        json.dump(objnew,f,indent=4)
+        json.dump(objold,f,indent=4)
 
 
 

@@ -13,6 +13,7 @@ FEATURES = [
     'version 0.2.0  : add `title`s functions',
     'version 0.3.0  : add selections for workspace',
     'version 0.4.0  : add included functions for workspace',
+    'version 0.5.0  : make sure properties are copied when getting structures',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -56,7 +57,8 @@ def myfunc_get_selected_titles():
 def myfunc_get_selected_structures():
     """1D: List[structure, structure, ...]"""
     rows = myfunc_get_selected_rows()
-    return [i.structure for i in rows]
+    #return [i.structure for i in rows]     # deprecated, properties are not copied!
+    return [i.getStructure() for i in rows]
 
 
 def myfunc_get_selected_molecules():

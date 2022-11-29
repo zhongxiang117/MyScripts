@@ -145,7 +145,7 @@ def _get_atoms_separated_by_molecule(included=False):
                 keys.append(j)
                 molnum += 1
         entryatoms.append([[atoms[v] for v in mids[k]] for k in keys])
-    print(f'Note: number of total molecule: {molnum}')
+    print(f'Note: number of total molecules: {molnum}')
     print(f'Note: number of total atoms: {sum([len(i) for i in fullatoms])}')
     return entryatoms
 

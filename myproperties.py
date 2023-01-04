@@ -9,6 +9,7 @@ import tkinter as tk
 # version 0.2.0     :   avoid filetype is type
 # version 0.3.0     :   add fsize for each type of files
 # version 0.4.0     :   correctly deal with the hidden file
+# version 0.5.0     :   add option to show preferred items
 
 USAGE = """
 myproperties.py  [path]   :   show detail properties for file/dir
@@ -55,12 +56,9 @@ elif os.path.isfile(cwp):
     data['@type'] = 'file'
 else:
     data['@type'] = 'unknown'
-data['==='] = ''       # work as separator
-seplist.append('===')
 
-data['created_time'] = time.ctime(os.path.getctime(cwp))
-data['modified_time'] = time.ctime(os.path.getmtime(cwp))
-data['=*='] = ''
+data['@modified_time'] = time.ctime(os.path.getmtime(cwp))
+data['=*='] = ''        # work as separator
 seplist.append('=*=')
 
 
@@ -117,7 +115,12 @@ else:
 
     data['=&='] = ''
     seplist.append('=&=')
-    for k in sorted(adddict.keys()):
+    # my preferred keys
+    keyspreferred = ['drawio','doc','docx','html','pdf']
+    ckeys = [i for i in keyspreferred if i in adddict]
+    skeys = sorted(adddict.keys())
+    for i in ckeys: skeys.remove(i)
+    for k in ckeys+skeys:
         s = bytes2human(adddict[k][1])
         data[k] = '{:} ({:})'.format(adddict[k][0],s)
 

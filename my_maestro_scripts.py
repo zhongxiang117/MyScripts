@@ -3,7 +3,13 @@
 Prefer to using syntax `from SCRIPTS import *`, then all customized functions
 will be starting with `myfunc_*`
 
-Important: All returned entries are sorted by row_number values
+Care:
+    1) atom's `index' starts from 1
+        -> `st.molecule' starts from 1, `st.atom' starts from 1
+    2) `[a for st.atom] != [a for m in st.molecule for a in m]' (important!!)
+    3) by test, `maestro.project_table_get().included_rows' returns reversed
+       order of entries, and the operation order matters. It is different
+       with `selected_rows', which is sorted by row number.
 """
 
 from schrodinger.maestro import maestro
@@ -16,6 +22,7 @@ FEATURES = [
     'version 0.5.0  : make sure properties are copied when getting structures',
     'version 0.6.0  : add more funcs and make their names more clear',
     'version 0.7.0  : add correspondent `included` functions',
+    'version 0.8.0  : add `molecule` methods; more workspace specific',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -28,13 +35,14 @@ __all__ = [
     'myfunc_get_included_titles',
     'myfunc_get_selected_structures',
     'myfunc_get_included_structures',
-#    'myfunc_get_selected_molecules',
+    'myfunc_get_selected_molecules',
+    'myfunc_get_included_molecules',
     'myfunc_get_selected_atoms_separated_by_molecule',
     'myfunc_get_included_atoms_separated_by_molecule',
     'myfunc_get_selected_atoms_separated_by_entry',
     'myfunc_get_included_atoms_separated_by_entry',
-    'myfunc_get_selected_ids',
-    'myfunc_get_included_ids',
+    'myfunc_get_selected_entry_ids',
+    'myfunc_get_included_entry_ids',
     'myfunc_get_selected_resnames_lists',
     'myfunc_get_included_resnames_lists',
     'myfunc_get_selected_resnames_sets',
@@ -45,13 +53,10 @@ __all__ = [
     'myfunc_get_included_atoms_charges_separated_by_molecule',
     'myfunc_get_selected_atoms_charges_separated_by_entry',
     'myfunc_get_included_atoms_charges_separated_by_entry',
-    'myfunc_ws_get_chosen_atoms_ids',
-    'myfunc_ws_get_chosen_atoms_ids_detail_from_selected',
-    'myfunc_ws_get_chosen_atoms_ids_detail_from_included',
-    'myfunc_ws_get_chosen_atoms_from_selected',
-    'myfunc_ws_get_chosen_atoms_from_included',
-    'myfunc_ws_get_chosen_atoms_center_and_size_from_selected',
-    'myfunc_ws_get_chosen_atoms_center_and_size_from_included',
+    'myfunc_ws_get_chosen_atoms_indexes',
+    'myfunc_ws_get_chosen_atoms_indexes_detail',
+    'myfunc_ws_get_chosen_atoms',
+    'myfunc_ws_get_chosen_atoms_center_and_size',
 ]
 
 
@@ -59,7 +64,7 @@ def _get_rows(included=False):
     """1D: List[row, row, ...]"""
     pt = maestro.project_table_get()
     if included:
-        rows = [i for i in pt.included_rows]
+        rows = [i for i in pt.included_rows][-1::-1]        # important!
         print(f'Note: number of included entries: {len(rows)}')
     else:
         rows = [i for i in pt.selected_rows]
@@ -104,23 +109,18 @@ def myfunc_get_included_structures():
     return [i.getStructure() for i in rows]
 
 
-# BUG -> Reported
-#def myfunc_get_selected_molecules():
-#    """1D: List[mol, mol, ...]"""
-#    sts = myfunc_get_selected_structures()
-#    mols = [[m for m in s.molecule] for s in sts]
-#    print(f'Note: number of total selected molecules: {sum([len(i) for i in mols])}')
-#    return mols
+def myfunc_get_selected_molecules():
+    sts = myfunc_get_selected_structures()
+    mols = [[m for m in s.molecule] for s in sts]
+    print(f'Note: number of total molecules: {sum([s.mol_total for s in sts])}')
+    return mols
 
 
-# Due to BUG
-#def myfunc_get_selected_atoms_separated_by_molecule():
-#    """3D: List[[[atom, atom, ...], [atom, atom, ...], ...], ...]"""
-#    mols = myfunc_get_selected_molecules()
-#    atoms = [[[i for i in m.atom] for m in s] for s in mols]
-#    total = sum([sum([len(m) for m in s]) for s in atoms])
-#    print(f'Note: number of total selected atoms: {total}')
-#    return atoms
+def myfunc_get_included_molecules():
+    sts = myfunc_get_included_structures()
+    mols = [[m for m in s.molecule] for s in sts]
+    print(f'Note: number of total molecules: {sum([s.mol_total for s in sts])}')
+    return mols
 
 
 def _get_atoms_separated_by_molecule(included=False):
@@ -129,25 +129,10 @@ def _get_atoms_separated_by_molecule(included=False):
         sts = myfunc_get_included_structures()
     else:
         sts = myfunc_get_selected_structures()
-    fullatoms = [[a for a in s.atom] for s in sts]
-    # Care: using `resnum` rather than `molecule_number` for differentiating
-    eatnums = [[a.resnum for a in s] for s in fullatoms]
-    entryatoms = []
-    molnum = 0
-    for mnums,atoms in zip(eatnums,fullatoms):
-        mids = {}
-        keys = []       # to store sequence
-        for i,j in enumerate(mnums):
-            if j in mids:
-                mids[j].append(i)
-            else:
-                mids[j] = [i,]
-                keys.append(j)
-                molnum += 1
-        entryatoms.append([[atoms[v] for v in mids[k]] for k in keys])
-    print(f'Note: number of total molecules: {molnum}')
-    print(f'Note: number of total atoms: {sum([len(i) for i in fullatoms])}')
-    return entryatoms
+    atoms = [[[a for a in m.atom] for m in s.molecule] for s in sts]
+    print(f'Note: number of total molecules: {sum([s.mol_total for s in sts])}')
+    print(f'Note: number of total atoms: {sum([s.atom_total for s in sts])}')
+    return atoms
 
 
 def myfunc_get_selected_atoms_separated_by_molecule():
@@ -178,14 +163,14 @@ def myfunc_get_included_atoms_separated_by_entry():
     return _get_atoms_separated_by_entry(included=True)
 
 
-def myfunc_get_selected_ids():
+def myfunc_get_selected_entry_ids():
     """1D: List[str, str, ...]"""
     rows = myfunc_get_selected_rows()
     ids = [i.entry_id for i in rows]
     return ids
 
 
-def myfunc_get_included_ids():
+def myfunc_get_included_entry_ids():
     """1D: List[str, str, ...]"""
     rows = myfunc_get_included_rows()
     ids = [i.entry_id for i in rows]
@@ -264,75 +249,25 @@ def myfunc_get_included_atoms_charges_separated_by_entry():
     return charges
 
 
-def myfunc_ws_get_chosen_atoms_ids():
+def myfunc_ws_get_chosen_atoms_indexes():
     """1D: List[int, int, ...]"""
     aids = maestro.selected_atoms_get()
     print(f'Note: workspace: number of chosen atoms: {len(aids)}')
     return [i-1 for i in aids]
 
 
-def _calc_ids(rows,mids):
-    # separate to sublist
-    totlist = [0]
-    for i,e in enumerate(rows):
-        totlist.append(totlist[i]+sum([len(m) for m in e]))
-    smids = sorted(mids)
-    slist = []
-    b = 0
-    for e in range(len(totlist)-1):
-        ls = []
-        while b < len(smids):
-            v = smids[b]
-            if v >= totlist[e+1]:
-                break
-            b += 1
-            ls.append(v-totlist[e])
-        slist.append(ls)
-
-    ids = []
-    for eid,mols,subs in zip(range(len(rows)),rows,slist):
-        srst = sorted(subs)
-        srst.append(-1)     # to avoid overflow
-        i = 0
-        offset = 0
-        for mid,atoms in enumerate(mols):
-            n = len(atoms)
-            for j in range(n):
-                if j == srst[i]-offset:
-                    ids.append((eid,mid,j))
-                    i += 1
-            offset += n
-    return ids
-
-
-def myfunc_ws_get_chosen_atoms_ids_detail_from_selected():
-    """1D: List[(eid,mid,aid), (eid,mid,aid), ...]"""
-    rows = myfunc_get_selected_atoms_separated_by_molecule()
-    mids = myfunc_ws_get_chosen_atoms_ids()
-    return _calc_ids(rows,mids)
-
-
-def myfunc_ws_get_chosen_atoms_ids_detail_from_included():
-    """1D: List[(eid,mid,aid), (eid,mid,aid), ...]"""
-    rows = myfunc_get_included_atoms_separated_by_molecule()
-    mids = myfunc_ws_get_chosen_atoms_ids()
-    return _calc_ids(rows,mids)
-
-
-def myfunc_ws_get_chosen_atoms_from_selected():
+def myfunc_ws_get_chosen_atoms():
     """2D: List[[atom, atom, ...], ...]"""
-    rows = myfunc_get_selected_atoms_separated_by_molecule()
-    mids = myfunc_ws_get_chosen_atoms_ids()
-    ids = _calc_ids(rows,mids)
-    return [rows[i[0]][i[1]][i[2]] for i in ids]
+    atoms = myfunc_get_included_atoms_separated_by_entry()
+    aids = myfunc_ws_get_chosen_atoms_indexes()
+    full = [a for st in atoms for a in st]
+    return [full[i] for i in aids]
 
 
-def myfunc_ws_get_chosen_atoms_from_included():
-    """2D: List[[atom, atom, ...], ...]"""
-    rows = myfunc_get_included_atoms_separated_by_molecule()
-    mids = myfunc_ws_get_chosen_atoms_ids()
-    ids = _calc_ids(rows,mids)
-    return [rows[i[0]][i[1]][i[2]] for i in ids]
+def myfunc_ws_get_chosen_atoms_indexes_detail():
+    """1D: List[(eid,mid,aid), (eid,mid,aid), ...]"""
+    atoms = myfunc_ws_get_chosen_atoms()
+    return [(a.entry_id,a.molecule_number_by_entry-1,a.index-1) for a in atoms]
 
 
 def _calc_center_and_size(crds):
@@ -355,16 +290,9 @@ def _calc_center_and_size(crds):
     return [(xsum/n,ysum/n,zsum/n), (xmax-xmin,ymax-ymin,zmax-zmin)]
 
 
-def myfunc_ws_get_chosen_atoms_center_and_size_from_selected():
+def myfunc_ws_get_chosen_atoms_center_and_size():
     """2D: List[ CenterCoord(x,y,z), BoxSize(xlen,ylen,zlen) ]"""
-    atoms = myfunc_ws_get_chosen_atoms_from_selected()
-    crds = [a.xyz for a in atoms]
-    return _calc_center_and_size(crds)
-
-
-def myfunc_ws_get_chosen_atoms_center_and_size_from_included():
-    """2D: List[ CenterCoord(x,y,z), BoxSize(xlen,ylen,zlen) ]"""
-    atoms = myfunc_ws_get_chosen_atoms_from_included()
+    atoms = myfunc_ws_get_chosen_atoms()
     crds = [a.xyz for a in atoms]
     return _calc_center_and_size(crds)
 

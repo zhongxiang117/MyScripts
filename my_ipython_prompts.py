@@ -7,6 +7,7 @@ import sys
 FEATURES = [
     'version 0.1.0  : for IPython Prompts',
     'version 0.2.0  : add parser for ``help``',
+    'version 0.3.0  : more versatile on ``help``',
 ]
 
 __version__ = FEATURES[-1].split(':')[0].split()[1]
@@ -38,9 +39,17 @@ def my_cmd_help(lines):
         if not (line.startswith('%') or line.startswith('help(')):
             tmp = line.strip()
             if tmp.endswith(' %help'):
-                line = 'help('+tmp[:-5]+')'
+                tmp = tmp[:-5]
+                ndx = tmp.find('(')
+                if ndx != -1:
+                    tmp = tmp[:ndx]
+                line = 'help('+tmp+')'
             elif tmp.endswith(' %h'):
-                line = 'help('+tmp[:-2]+')'
+                tmp = tmp[:-2]
+                ndx = tmp.find('(')
+                if ndx != -1:
+                    tmp = tmp[:ndx]
+                line = 'help('+tmp+')'
         news.append(line)
     return news
 

@@ -6,7 +6,7 @@ will be starting with `myfunc_*`
 Care:
     1) atom's `index' starts from 1
         -> `st.molecule' starts from 1, `st.atom' starts from 1
-    2) `[a for st.atom] != [a for m in st.molecule for a in m]' (important!!)
+    2) `[a for a in st.atom] != [a for m in st.molecule for a in m]' (important!!)
     3) by test, `maestro.project_table_get().included_rows' returns reversed
        order of entries, and the operation order matters. It is different
        with `selected_rows', which is sorted by row number.

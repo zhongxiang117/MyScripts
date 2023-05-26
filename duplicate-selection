@@ -1,0 +1,35 @@
+#!/bin/bash
+
+
+fname=$(basename ${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS})
+base=${fname%\.*}
+#pdir=${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS%\/*}
+
+if [[ -z $(echo "$fname" | grep '\.') ]]; then
+    dext=""
+else
+    dext=".${fname##*\.}"
+fi
+
+bofile=true
+if [[ -d "$fname" ]]; then
+    bofile=false
+elif [[ -f "$fname" ]]; then
+    bofile=true
+else
+    exit
+fi
+
+for i in {1..1000}; do
+    new="$base-${i}${dext}"
+    if $bofile; then
+        if [[ ! -f "$new" ]]; then break; fi
+    else
+        if [[ ! -d "$new" ]]; then break; fi
+    fi
+done
+
+cp -rf ${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS} "$new"
+
+
+

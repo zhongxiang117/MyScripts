@@ -1,0 +1,29 @@
+#!/bin/bash
+
+ctype="tgz"
+
+fname=$(basename ${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS})
+stamp=$(date "+%Y-%b-%d-%H-%M")
+new="${fname}-${stamp}.$ctype"
+if [[ -f $new ]]; then
+    base=${fname%\.*}
+    if [[ -z $(echo "$fname" | grep '\.') ]]; then
+        ext=""
+    else
+        ext=${fname##*\.}
+    fi
+#    pdir=${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS%\/*}
+
+    for i in {1..1000}; do
+        if [[ -n "$ext" ]]; then
+            new="$base-$stamp-$i.$ext.$ctype"
+        else
+            new="$base-$stamp-$i.$ctype"
+        fi
+        if [[ ! -f "$new" ]]; then break; fi
+    done
+fi
+
+tar -czf $new $fname
+
+

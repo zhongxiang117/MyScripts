@@ -1,0 +1,70 @@
+#!/bin/sh
+
+#
+# this script is used by me to start python
+#
+
+######
+## Set some environment variable.
+MGL_ROOT="/home/xiang/Applications/mgltools_x86_64Linux2_1.5.7" 
+export MGL_ROOT
+
+MGL_ARCHOSV=`$MGL_ROOT/bin/archosv`
+export MGL_ARCHOSV
+
+MGL_EXTRALIBS="$MGL_ROOT/lib"
+export MGL_EXTRALIBS
+
+MGL_EXTRAINCLUDE="$MGL_ROOT/include"
+export MGL_EXTRAINCLUDE
+
+PATH="$MGL_ROOT/bin:$PATH"
+export PATH
+
+TCL_LIBRARY="$MGL_ROOT/tcl8.5"
+export TCL_LIBRARY
+
+TK_LIBRARY="$MGL_ROOT/tk8.5"
+export TK_LIBRARY
+
+# Open Babel formats, plugins directory:
+BABEL_LIBDIR="$MGL_ROOT/lib/openbabel/2.4.1"
+export BABEL_LIBDIR
+BABEL_DATADIR="$MGL_ROOT/share/openbabel/2.4.1"
+export BABEL_DATADIR
+
+MY_NEW_PYTHON=$MGL_ROOT/my-build-python-2.7.13
+
+LD_LIBRARY_PATH="$MGL_ROOT/lib:$MY_NEW_PYTHON/lib:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH
+
+unset PYTHONHOME
+PYTHONHOME="$MGL_ROOT"
+export PYTHONHOME
+
+PYTHONPATH="$MGL_ROOT/MGLToolsPckgs"
+export PYTHONPATH
+
+$MY_NEW_PYTHON/bin/python $@
+
+
+
+cat <<EOF
+1. install a similar python by using current version, py2
+2. install all needed packages inside py2
+3. add py2 `site-packages` into original path by using `pth` file,
+    be careful with the precedence of names, suggest to use `zz.pth`
+4. stop `ipython` reading system wide configurations if necessary.
+
+
+```
+if __name__ == '__main__':
+    import os
+    from IPython import start_ipython
+    os.environ['IPYTHONDIR'] = ''
+    start_ipython()
+```
+EOF
+
+
+

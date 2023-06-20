@@ -64,6 +64,14 @@ if __name__ == '__main__':
     os.environ['IPYTHONDIR'] = ''
     start_ipython()
 ```
+
+5. start by using `adt -i`, then embed IPython Shell inside it,
+    by commands inside Python idle(teminal):
+
+```
+import IPython
+IPython.embed()
+```
 EOF
 
 

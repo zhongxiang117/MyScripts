@@ -61,7 +61,9 @@ cat <<EOF
 if __name__ == '__main__':
     import os
     from IPython import start_ipython
-    os.environ['IPYTHONDIR'] = ''
+    # a path should be added, otherwise, new initialized folders
+    # will be creatd at every time where ipython starts
+    os.environ['IPYTHONDIR'] = 'dirpath'
     start_ipython()
 ```
 

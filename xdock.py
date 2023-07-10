@@ -13,6 +13,8 @@ FEATURES = [
     'version 0.1.0  : XAutoDock',
     'version 0.2.0  : add argparse',
     'version 0.3.0  : add option for modification of maps',
+    'version 0.4.0  : add generation of ligand shape file',
+    'version 0.5.0  : fix ligand shape problems',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -42,7 +44,7 @@ outlev 1                             # diagnostic output level
 intelec                              # calculate internal electrostatics
 seed pid time                        # seeds for random generator
 ligand_types {ligtypes}
-gridfld {gridfld}
+fld {gridfld}
 {maps}
 move {move}
 about {about}
@@ -286,13 +288,14 @@ class ReadMap:
         self._pars = []
         self.center = [0.0, 0.0, 0.0]
         self.space = 0.375
+        self.r = 0.0
+        self.d = 1.0
 
     def read_map_from_autodock(self,mapfile=None,npts=None):
         if not mapfile: mapfile = self.mapfile
-        self.mapfile = mapfile      # reset current mapfile name
         if not npts: npts = self.npts
         if not os.path.isfile(mapfile):
-            print(f'Error: map: not a file: {mapfile}')
+            print(f'Error: not a file: {mapfile}')
             return []
         # try to find npts if not defined
         if not npts:
@@ -354,7 +357,7 @@ class ReadMap:
                 for j in range(self.npts[1]+1):
                     for i in range(self.npts[0]+1):
                         f.write(f'{data[k][j][i]}\n')
-        print(f'Note: map file saved to {filename}')
+        print(f'Note: file saved to {filename}')
 
     def _get_center_grids(self):
         if not self._pars: return
@@ -382,82 +385,35 @@ class ReadMap:
                 if bo:
                     print(f'Warning: wrong line: {l}')
                     return
+        self.xmin = self.center[0] - self.npts[0]/2*self.space
+        self.ymin = self.center[1] - self.npts[1]/2*self.space
+        self.zmin = self.center[2] - self.npts[2]/2*self.space
+
+    def calc_indexs(self,ligxyz,r=None,d=None):
+        if not r: r = self.r
+        if not d: d = self.d
+        rd = r + d
+        overlaps = set()
+        for c in ligxyz:
+            ox = (int((c[0]-rd-self.xmin)/self.space),int((c[0]+rd-self.xmin)/self.space))
+            oy = (int((c[1]-rd-self.ymin)/self.space),int((c[1]+rd-self.ymin)/self.space))
+            oz = (int((c[2]-rd-self.zmin)/self.space),int((c[2]+rd-self.zmin)/self.space))
+            for i in range(ox[0],min(ox[1]+1,self.npts[0]+1)):
+                for j in range(oy[0],min(oy[1]+1,self.npts[1]+1)):
+                    for k in range(oz[0],min(oz[1]+1,self.npts[2]+1)):
+                        overlaps.add((i,j,k))
+        alls = set()
+        for i in range(self.npts[0]+1):
+            for j in range(self.npts[1]+1):
+                for k in range(self.npts[2]+1):
+                    alls.add((i,j,k))
+        left = alls.difference(overlaps)
+        return overlaps,left
 
     def fill_values(self,data,indexes,fillval=None):
         if not fillval: fillval = 0.0
-        for x in indexes[0]:
-            for y in indexes[1]:
-                for z in indexes[2]:
-                    data[x][y][z] = fillval
-
-    def calc_indexs(self,span_ranges):
-        bo = False
-        if not span_ranges:
-            bo = True
-        elif len(span_ranges) == 3:
-            if not span_ranges[0] or not span_ranges[1] or not span_ranges[2]:
-                bo = True
-        else:
-            bo = True
-        if bo:
-            print('Warning: index: wrong inputs: span_range')
-            return []
-
-        """Save for future use
-        xmin = self.center[0] - self.npts[0]/2*self.space
-        xmax = self.center[0] + self.npts[0]/2*self.space
-        ymin = self.center[1] - self.npts[1]/2*self.space
-        ymax = self.center[1] + self.npts[1]/2*self.space
-        zmin = self.center[2] - self.npts[2]/2*self.space
-        zmax = self.center[2] + self.npts[2]/2*self.space
-        if span_ranges[0][0][0]<xmin or span_ranges[0][-1][1]>xmax:
-            print('Warning: x axis: not correspondent: grid/ligand')
-            return []
-        if span_ranges[1][0][0]<ymin or span_ranges[1][-1][1]>ymax:
-            print('Warning: y axis: not correspondent: grid/ligand')
-            return []
-        if span_ranges[2][0][0]<zmin or span_ranges[2][-1][1]>zmax:
-            print('Warning: z axis: not correspondent: grid/ligand')
-            return []
-        """
-        
-        xi = self._calc_index(span_ranges[0],'x')
-        yi = self._calc_index(span_ranges[1],'y')
-        zi = self._calc_index(span_ranges[2],'z')
-        return [xi,yi,zi]
-
-
-    def _calc_index(self,spans,type_='x'):
-        if type_ == 'x':
-            t = 0
-        elif type_ == 'y':
-            t = 1
-        else:
-            t = 2
-        smin = a = self.center[t] - self.npts[t]/2*self.space
-        b = self.center[t] + self.npts[t]/2*self.space
-
-        voids = []
-        for v in spans:
-            if v[0] > a:
-                voids.append((a,v[0]))
-            a = v[1]
-        if a < b:
-            voids.append((a,b))
-
-        if not voids:
-            return []
-
-        ndxlist = []
-        c = 0
-        for i in range(self.npts[t]+1):
-            v = smin + i * self.space
-            while c < len(voids):
-                if v >= voids[c][0] and v <= voids[c][1]:
-                    ndxlist.append(i)
-                    break
-                c += 1
-        return ndxlist
+        for ndx in indexes:
+            data[ndx[0]][ndx[1]][ndx[2]] = fillval
 
 
 class LigandShape(XADTPrep):
@@ -465,7 +421,7 @@ class LigandShape(XADTPrep):
         super().__init__(*args,**kws)
         self.mapfiles = self._norm_mapfiles(mapfiles)
         self.r = 0.0    # atomic radii
-        self.d = 0.0    # distance
+        self.d = 1.0    # distance
     
     def _norm_mapfiles(self,mapfiles):
         if isinstance(mapfiles,(list,tuple)):
@@ -484,10 +440,28 @@ class LigandShape(XADTPrep):
         for m in mapfiles:
             data = fn.read_map_from_autodock(mapfile=m)
             if not data: continue
-            span_ranges = self.calc_span_ranges()
-            indexes = fn.calc_indexs(span_ranges)
-            fn.fill_values(data,indexes,fillval)
+            overlaps,left = fn.calc_indexs(self.ligxyz)
+            fn.fill_values(data,left,fillval)
             fn.save_autodock_map_from_data(data,m)
+
+            # ligand shape file
+            xmin = fn.center[0] - fn.npts[0]/2*fn.space
+            ymin = fn.center[1] - fn.npts[1]/2*fn.space
+            zmin = fn.center[2] - fn.npts[2]/2*fn.space
+            fxyz = []
+            for v in overlaps:
+                x = v[0]*fn.space + xmin
+                y = v[1]*fn.space + ymin
+                z = v[2]*fn.space + zmin
+                fxyz.append((x,y,z))
+            k = os.path.splitext(os.path.splitext(m)[0])[1][1:]
+            new = xnewfile('grid-map-'+k+'.xyz')
+            print(f'Note: grid map shape saved to: {new}')
+            with open(new,'wt') as f:
+                f.write(f'{len(fxyz)}\nGrid\n')
+                for i in fxyz:
+                    f.write('X   {:.3f}   {:.3f}   {:.3f}\n'.format(*i))
+
 
     def _span_ranges(self,l,d=None):
         if not d: d = self.d

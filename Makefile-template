@@ -1,0 +1,235 @@
+# XZ Make Template
+# credits to tutorial: https://makefiletutorial.com/
+
+
+# `make` is constructed/separated by blocks
+# this will be the first block, until to next `target`
+targets: prerequisites  prereq2
+	echo "targets"
+	echo ">$(one)<, var one will be found if it is set"
+
+prerequisites:
+	echo "this will be run before 'targets': prerequisites"
+prereq2::
+	echo "double colon rule: prerequisites -- first"
+prereq2::
+	echo "double colon rule: prerequisites -- second"
+
+
+# intermediate files will be deleted after `make`
+# https://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
+#
+#.INTERMEDIATE:
+#.NOTINTERMEDIATE:
+#.PRECIOUS: %.o
+
+# Recursive variable. This will print "later" below
+one = one ${later_variable}
+# Simply expanded variable. This will not print "later" below
+two := two ${later_variable}
+
+later_variable = later
+
+# results:
+#> one later
+#> two
+test_var_recursive:
+	echo $(one)
+	echo $(two)
+
+
+
+# only sets variables if they have not yet been set
+three = hello
+three ?= will not be set
+four ?= will be set
+
+# results:
+#> hello
+#> will be set
+test_var_whether_set:
+	echo $(three)
+	echo $(four)
+
+
+
+# space in after `hello` will be kept until to comments
+with_spaces = hello     # with_spaces has many spaces after "hello"
+after = $(with_spaces)there
+
+# however, `space1` will no space, `space2` will have one space
+nullstring =   
+space1 = $(nullstring)
+space2 = $(nullstring) # a space inserted
+
+# results:
+#> =hello     there=
+#> ==
+#> = =
+test_var_space: 
+	echo "=$(after)="
+	echo "=$(space1)="
+	echo "=$(space2)="
+
+
+
+xzhey: xzone xztwo
+	# Outputs "xzhey", since this is the first target
+	echo $@
+	# Outputs all prerequisites newer than the target
+	echo $?
+	# Outputs all prerequisites
+	echo $^
+	touch hey
+
+# use `make -s` to be silent
+xzone:
+	@echo "This make line will not be printed"
+	echo "xzone"
+
+xztwo:
+	echo "xztwo"
+
+
+
+a := one two    # a is set to the string "one two"
+b := 'one two'  # b is set to the string "'one two'"
+
+# variable should be called by using ${var} or $(var)
+c := $(b)
+
+
+
+# $@ is an automatic variable that contains the target name.
+f1.o f2.o:
+	echo $@
+# Equivalent to:
+# f1.o:
+#	 echo f1.o
+# f2.o:
+#	 echo f2.o
+
+
+
+thing_wrong := *.o      # Don't do this! '*' will not get expanded
+thing_right := $(wildcard *.o)
+
+all2: pone ptwo pthree pfour
+
+# Fails, because $(thing_wrong) is the string "*.o"
+pone: $(thing_wrong)
+
+# Stays as *.o if there are no files that match this pattern
+ptwo: *.o 
+
+# Works as you would expect! In this case, it does nothing.
+pthree: $(thing_right)
+
+# Same as rule three
+pfour: $(wildcard *.o)
+
+
+
+# implicit rules
+#
+# Compiling a C program:
+#   `n.o` is made automatically from `n.c` with a command of the form $(CC) -c $(CPPFLAGS) $(CFLAGS)
+# Compiling a C++ program:
+#   `n.o` is made automatically from `n.cc` or `n.cpp` with a command of the form $(CXX) -c $(CPPFLAGS) $(CXXFLAGS)
+# Linking a single object file:
+#   `n` is made automatically from `n.o` by running the command $(CC) $(LDFLAGS) n.o $(LOADLIBES) $(LDLIBS)
+
+CC = gcc # Flag for implicit rules
+CFLAGS = -g # Flag for implicit rules. Turn on debug info
+# Implicit rule #1: blah is built via the C linker implicit rule
+# Implicit rule #2: blah.o is built via the C compilation implicit rule, because blah.c exists
+blah: blah.o
+# `nice.c` will be constructed by pattern rule
+blah.c: nice.c
+	echo "in blah.c"
+%.c:
+	echo "pattern rule for: *.c, if the target is not found"
+
+
+# results:
+#> 1 /home/xiang/test-make
+#> 2 /home/xiang/test-make
+#> 3 /home/xiang
+#> 4 /home/xiang
+test_subshell:
+	echo 1 `pwd`
+	cd ..
+	# The cd above does not affect this line, because each command is effectively run in a new shell
+	echo 2 `pwd`
+
+	# This cd command affects the next because they are on the same line
+	cd ..; echo 3 `pwd`
+
+	# Same as above
+	cd ..; \
+	echo 4 `pwd`
+
+
+
+# add `-` before a command to suppress the error
+test_error_handler:
+	# This error will be printed but ignored, and make will continue to run
+	-not_exist_command
+
+# `.EXPORT_ALL_VARIABLES` exports all variables
+# otherwise, use `export var` for subshell `make`
+
+
+
+onef = export blah="I was set!"; echo $$blah
+
+define twof
+export blah=set
+echo $$blah
+endef
+
+# results:
+#> This prints 'I was set'
+#> I was set!
+#> This does not print 'I was set' because each command runs in a separate shell
+#> [nothing]
+test_list_commands: 
+	@echo "This prints 'I was set'"
+	@$(onef)
+	@echo "This does not print 'I was set' because each command runs in a separate shell"
+	@$(twof)
+
+
+
+# use functions with `$(fn, arguments)`
+# Link: https://www.gnu.org/software/make/manual/html_node/Functions.html
+foot = ok
+test_ifeq:
+ifeq ($(foot), ok)
+	echo "foot equals ok"
+else
+	echo "nope"
+endif
+
+
+
+# `.PHONY` will prevent from confusing the phony target with a file name
+some_file:
+	touch x_some_file
+	touch x_file_clean
+
+.PHONY: x_clean
+x_clean:
+	rm -f x_some_file
+	rm -f x_clean
+
+
+
+# all var `basename.o` will be replaced to `basename.d`
+# in the string substituted `$(VAR:pattern=replacement)`
+STRIPPED_STR := $(ALL_TARGETS:.o=.d)
+
+
+
+
+

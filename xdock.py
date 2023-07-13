@@ -15,6 +15,10 @@ FEATURES = [
     'version 0.3.0  : add option for modification of maps',
     'version 0.4.0  : add generation of ligand shape file',
     'version 0.5.0  : fix ligand shape problems',
+    'version 0.5.1  : add more output info',
+    'version 0.6.0  : add option `--centroid-at`',
+    'version 0.7.0  : add option `--maps-dir`',
+    'version 0.8.0  : add option `--gen-ligand-gridshape`'
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -78,12 +82,23 @@ analysis                             # perform a ranked cluster analysis
 """
 
 
-def xnewfile(file,head=None):
-    if not os.path.isfile(file): return file
+def xnewfile(file,head=None,includedir=None):
+    """calculate new file name to avoid overwriting
+    
+    if includedir is turned on, operation will be performed on the `file` path;
+    otherwise, operation will be performed on current dir
+    """
+    if not head and not os.path.isfile(file): return file
+    dire = os.path.dirname(file)
+    if not dire: dire = '.'
+    base = os.path.basename(file)
     if not head: head = 'new-'
     i = 1
     while True:
-        new = head + str(i) + '-' + file
+        if includedir:
+            new = dire + os.path.sep + head + str(i) + '-' + base
+        else:
+            new = head + str(i) + '-' + base
         if not os.path.isfile(new): break
         i += 1
     return new
@@ -91,20 +106,21 @@ def xnewfile(file,head=None):
 
 class XADTPrep:
     def __init__(
-        self,recfile=None,ligfile=None,
+        self,recfile=None,ligfile=None,centroid_at=None,
         npts=None,gridcenter=None,ligand_types=None,receptor_types=None,
         verbose=None,*args,**kws
     ):
         self.verbose = True if verbose is True else False
-        self.recfile = recfile if recfile else 'receptor'
+        self.recfile = recfile if recfile else 'receptor.pdb'
         # be aware, basename should be used!
         self.recfile_s = os.path.basename(os.path.splitext(self.recfile)[0])
         self.recfile_s = xnewfile(self.recfile_s)
 
-        self.ligfile = ligfile if ligfile else 'ligand'
+        self.ligfile = ligfile if ligfile else 'ligand.pdb'
         self.ligfile_s = os.path.basename(os.path.splitext(self.ligfile)[0])
         self.ligfile_s = xnewfile(self.ligfile_s)
         self.gridcenter = [0.0, 0.0, 0.0]
+        self.centroid_at = centroid_at
         self.ligxyz = None
         self._flp = None
         self._gen_pdbqt_for_ligand()
@@ -132,6 +148,7 @@ class XADTPrep:
                 print(f'Warning: wrong defined: {info}: {l}')
             else:
                 print(f'Warning: wrong defined: {l}')
+            print('  >  defaults will be used')
             r = ' '.join(default_s.replace(',', ' ').replace(';', ' ').split())
         return r
 
@@ -193,7 +210,8 @@ class XADTPrep:
             print(len(bad_list), ' atom coordinates changed!')
             for a in bad_list:
                 print(a.name, ":", coord_dict[a], ' -> ', a.coords)
-        elif verbose: print("No change in atomic coordinates")
+        elif verbose:
+            print("No change in atomic coordinates")
 
         # if mol.returnCode != 0:
         #     print(f'ligand return msg: {mol.returnMsg}')
@@ -205,13 +223,27 @@ class XADTPrep:
         n = len(mol.allAtoms)
         self.gridcenter = [round(sx/n,3), round(sy/n,3), round(sz/n,3)]
 
+        if self.centroid_at:
+            dx = self.gridcenter[0] - self.centroid_at[0]
+            dy = self.gridcenter[1] - self.centroid_at[1]
+            dz = self.gridcenter[2] - self.centroid_at[2]
+            self.gridcenter = self.centroid_at
+            self.ligxyz = [[v[0]-dx,v[1]-dy,v[2]-dz] for v in self.ligxyz]
+            self._flp.molecule.allAtoms.coords = self.ligxyz
+
     def gen_pdbqt_for_ligand(self,file=None,verbose=None):
         if file:
             self._gen_pdbqt_for_ligand(self,file,verbose)
         else:
-            if not self._flp: return
+            if not self._flp:
+                print(f'Warning: no valid ligand is detected: {self.ligfile}')
+                return
         print(f'Note: Writing ligand pdbqt to: {self.ligfile_s}.pdbqt')
         self._flp.write(self.ligfile_s+'.pdbqt')
+        atomtypes = self.get_autodock_atomtypes(self.ligfile_s+'.pdbqt')
+        atomtypes = list(set(atomtypes))
+        print('Note: processed ligand types: '+' '.join(atomtypes))
+        print('Note: processed ligand center: '+' '.join([str(i) for i in self.gridcenter]))
 
     def gen_pdbqt_for_protein(self,file=None,verbose=None):
         if not file: file = self.recfile
@@ -227,6 +259,9 @@ class XADTPrep:
         )
         print(f'Note: Writing receptor pdbqt to: {self.recfile_s}.pdbqt')
         frp.write(self.recfile_s+'.pdbqt')
+        atomtypes = self.get_autodock_atomtypes(self.recfile_s+'.pdbqt')
+        atomtypes = list(set(atomtypes))
+        print('Note: processed receptor types: '+' '.join(atomtypes))
 
     def gen_gridbox_pdb(self,outfile=None,gridcenter=None,npts=None,spacing=None):
         if not outfile: outfile = 'box.pdb'
@@ -274,6 +309,22 @@ class XADTPrep:
         contents = box.format(t,n,spacing,a,b,c,d,e,f,g,h) # left-strip the blank spaces
         self.write('\n'.join([i.lstrip() for i in contents.split('\n')]),outfile=outfile)
 
+    def get_autodock_atomtypes(self,file):
+        if not os.path.isfile(file): return []
+        raws = []
+        with open(file,'rt') as f:
+            for line in f:
+                if line.startswith('ATOM') or line.startswith('HETATM'):
+                    raws.append(line[77:79])
+        if not raws:
+            print(f'Warning: no valid ATOM/HETATM entry was found: {file}')
+            return []
+        pros = [i.strip() for i in raws if i.strip()]
+        if len(pros) != len(raws):
+            print(f'Warning: some ATOM/HETATM entry were missing: {file}')
+            return []
+        return pros
+
 
 class ReadMap:
     """Read Map Files
@@ -284,7 +335,7 @@ class ReadMap:
         self,mapfile=None,npts=None,*args,**kws
     ):
         self.mapfile = mapfile
-        self.npts = npts
+        self.npts = npts if npts else [60, 60, 60]
         self._pars = []
         self.center = [0.0, 0.0, 0.0]
         self.space = 0.375
@@ -295,7 +346,7 @@ class ReadMap:
         if not mapfile: mapfile = self.mapfile
         if not npts: npts = self.npts
         if not os.path.isfile(mapfile):
-            print(f'Error: not a file: {mapfile}')
+            print(f'Error: not a map file: {mapfile}')
             return []
         # try to find npts if not defined
         if not npts:
@@ -346,7 +397,7 @@ class ReadMap:
     def save_autodock_map_from_data(self,data,filename=None,overwrite=None):
         if not filename: filename = self.mapfile
         if overwrite is not True:
-            new = xnewfile(filename,'bak-')
+            new = xnewfile(filename,'bak-',includedir=True)
             if filename != new:
                 print(f'Note: Backup old map file to: {new}')
                 shutil.move(filename,new)
@@ -417,84 +468,140 @@ class ReadMap:
 
 
 class LigandShape(XADTPrep):
-    def __init__(self,mapfiles=None,r=None,d=None,*args,**kws):
+    def __init__(self,mapfiles=None,maps_dir=None,gen_mapshape=None,r=None,d=None,*args,**kws):
         super().__init__(*args,**kws)
+        d = os.listdir(maps_dir) if maps_dir and os.path.isdir(maps_dir) else []
+        d = [i for i in d if i.endswith('.map')]
+        self.mapfiles_dir = [(os.path.join(maps_dir,i),os.path.basename(i)) for i in d]
+        if self.mapfiles_dir:
+            print(f'Note: processing on maps_dir: {maps_dir}')
+            print('   >> found map files: '+' '.join(d))
         self.mapfiles = self._norm_mapfiles(mapfiles)
+        if self.mapfiles and self.mapfiles_dir:
+            print('Warning: conflicts: self.mapfile & maps_dir')
+        self.gen_mapshape = False if gen_mapshape is False else True
         self.r = 0.0    # atomic radii
         self.d = 1.0    # distance
-    
+
     def _norm_mapfiles(self,mapfiles):
         if isinstance(mapfiles,(list,tuple)):
-            mapfiles = [self.recfile_s+'.'+i+'.map' for i in mapfiles]
+            mf = [i for i in mapfiles if os.path.isfile(i)]
+            if mf:
+                mapfiles = mf
+            else:
+                mapfiles = [self.recfile_s+'.'+i+'.map' for i in mapfiles]
+                mapfiles = [i for i in mapfiles if os.path.isfile(i)]
         elif isinstance(mapfiles,str):
-            mapfiles = [self.recfile_s+'.'+mapfiles+'.map', ]
+            if os.path.isfile(mapfiles):
+                mapfiles = [mapfiles, ]
+            else:
+                mapfiles = [self.recfile_s+'.'+mapfiles+'.map', ]
+                mapfiles = [i for i in mapfiles if os.path.isfile(i)]
         else:
             mapfiles = []
-        return mapfiles
 
     def run(self,mapfiles=None,fillval=None):
         mapfiles = self._norm_mapfiles(mapfiles)
-        if not mapfiles: mapfiles = self.mapfiles
-        if not mapfiles: return
+        if not mapfiles:
+            if self.mapfiles_dir:
+                mapfiles = self.mapfiles_dir
+            else:
+                mapfiles = self.mapfiles
+        if not mapfiles:
+            print('Warning: no valid map files is defined')
+            return
         fn = ReadMap()
         for m in mapfiles:
+            if isinstance(m,str):
+                o = False
+                b = m
+            else:
+                o = True
+                m, b = m[0],m[1]
             data = fn.read_map_from_autodock(mapfile=m)
             if not data: continue
             overlaps,left = fn.calc_indexs(self.ligxyz)
             fn.fill_values(data,left,fillval)
-            fn.save_autodock_map_from_data(data,m)
+            fn.save_autodock_map_from_data(data,b,overwrite=o)
 
-            # ligand shape file
-            xmin = fn.center[0] - fn.npts[0]/2*fn.space
-            ymin = fn.center[1] - fn.npts[1]/2*fn.space
-            zmin = fn.center[2] - fn.npts[2]/2*fn.space
-            fxyz = []
-            for v in overlaps:
-                x = v[0]*fn.space + xmin
-                y = v[1]*fn.space + ymin
-                z = v[2]*fn.space + zmin
-                fxyz.append((x,y,z))
-            k = os.path.splitext(os.path.splitext(m)[0])[1][1:]
-            new = xnewfile('grid-map-'+k+'.xyz')
-            print(f'Note: grid map shape saved to: {new}')
-            with open(new,'wt') as f:
-                f.write(f'{len(fxyz)}\nGrid\n')
-                for i in fxyz:
-                    f.write('X   {:.3f}   {:.3f}   {:.3f}\n'.format(*i))
+            if self.gen_mapshape:
+                self._gen_shape(fn.center,fn.npts,fn.space,overlaps,m,'mapshape-')
 
+    def _gen_shape(self,center,npts,space,overlaps,filename,head):
+        xmin = center[0] - npts[0]/2*space
+        ymin = center[1] - npts[1]/2*space
+        zmin = center[2] - npts[2]/2*space
+        fxyz = []
+        for v in overlaps:
+            x = v[0]*space + xmin
+            y = v[1]*space + ymin
+            z = v[2]*space + zmin
+            fxyz.append((x,y,z))
+        bm = os.path.basename(filename)
+        new = xnewfile(bm+'.xyz',head=head)
+        print(f'Note: shape file saved to: {new}')
+        with open(new,'wt') as f:
+            f.write(f'{len(fxyz)}\nGrid\n')
+            for i in fxyz:
+                f.write('X   {:.3f}   {:.3f}   {:.3f}\n'.format(*i))
 
-    def _span_ranges(self,l,d=None):
-        if not d: d = self.d
-        if not l:
-            return []
-        elif len(l) == 1:
-            return [(l[0]-self.r-self.d, l[0]+self.r+self.d), ]
+    def gen_shape_on_ligfile(self,ligfile=None):
+        if ligfile:
+            super.__init__(ligfile=ligfile)
+        if not self._flp:
+            print('Warning: no valid ligand file is defined')
+            return
+        npts = list(map(int,self.npts_s.split()))
+        space = 0.375
+        center = self.gridcenter
         rd = self.r + self.d
-        ls = sorted(l)
-        a = ls[0] - rd
-        b = ls[0] + rd
-        rst = []
-        for v in ls[1:]:
-            if b < v-rd:
-                rst.append((a,b))
-                a = v-rd
-            b = v+rd
-        rst.append((a,b))
-        return rst
-
-    def calc_span_ranges(self,d=None):
-        lx = [i[0] for i in self.ligxyz]
-        xs = self._span_ranges(lx,d)
-        ly = [i[1] for i in self.ligxyz]
-        ys = self._span_ranges(ly,d)
-        lz = [i[2] for i in self.ligxyz]
-        zs = self._span_ranges(lz,d)
-        return [xs, ys, zs]
+        overlaps = set()
+        xmin = center[0] - npts[0]/2*space
+        ymin = center[1] - npts[1]/2*space
+        zmin = center[2] - npts[2]/2*space
+        for c in self.ligxyz:
+            ox = (int((c[0]-rd-xmin)/space),int((c[0]+rd-xmin)/space))
+            oy = (int((c[1]-rd-ymin)/space),int((c[1]+rd-ymin)/space))
+            oz = (int((c[2]-rd-zmin)/space),int((c[2]+rd-zmin)/space))
+            for i in range(ox[0],min(ox[1]+1,npts[0]+1)):
+                for j in range(oy[0],min(oy[1]+1,npts[1]+1)):
+                    for k in range(oz[0],min(oz[1]+1,npts[2]+1)):
+                        overlaps.add((i,j,k))
+        self._gen_shape(center,npts,space,overlaps,self.ligfile,'gridshape-')
 
 
 def parsecmd():
     parser = argparse.ArgumentParser(
-        description='XAutoDock '+VERSION,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=f"""
+XAutoDock {VERSION}. General Usage:
+
+1. generate all needed files
+>>> xdock.py -l ligand.pdb -r receptor.pdb -gb -gl -gr -gg -gd -gs
+
+2. meaningful when `-l` specified
+>>> xdock.py -l ligand.pdb -gl -gb [-gg] [-gs] [-c 0.0 0.0 0.0]
+
+3. meaningful when `-r` specified
+>>> xdock.py -r receptor.pdb -gr [-gd]
+
+4. special cases, default values will be used for parameter files even no inputs
+>>> xdock.py -gg -gd -gb
+
+5. to modify exist map files
+# use receptor's basename locate maps
+>>> xdock.py -l ligand.pdb -r receptor.pdb -ms A C [--not-gen-gridshape]
+# use full mapfiles name
+>>> xdock.py -l ligand.pdb -ms receptor.A.map receptor.C.map [--not-gen-gridshape]
+# use a folder
+>>> xdock.py -l ligand.pdb -md /path/to/dir-maps [--not-gen-gridshape]
+
+6. centroid ligand first, then generate its shape
+>>> xdock.py -l ligand.pdb -ms receptor.A.map -c 0.0 0.0 0.0
+
+7. generate ligand shape
+>>> xdock.py -l ligand.pdb -gs
+""",
         allow_abbrev=False,
     )
     parser.add_argument(
@@ -515,53 +622,81 @@ def parsecmd():
         help='input receptor file'
     )
     parser.add_argument(
+        '-c','--centroid-at',
+        dest='centroid_at',
+        metavar='v',
+        nargs=3,
+        type=float,
+        help='valid when `-l` is used, centroid `ligfile` at defined center before any generations'
+    )
+    parser.add_argument(
         '--npts',
         dest='npts',
+        metavar='v',
         nargs=3,
         type=int,
         help='number of grid points'
     )
     parser.add_argument(
         '-gb','--gen-gridbox',
-        dest='g_box',
+        dest='gen_box',
         action='store_true',
         help='generate grid box based on input ligand'
     )
     parser.add_argument(
         '-gl','--gen-ligand-pdbqt',
-        dest='g_lig',
+        dest='gen_lig',
         action='store_true',
         help='parse input ligand file and then generate pdbqt file'
     )
     parser.add_argument(
         '-gr','--gen-receptor-pdbqt',
-        dest='g_rec',
+        dest='gen_rec',
         action='store_true',
         help='parse input receptor file and then generate pdbqt file'
     )
     parser.add_argument(
         '-gg','--gen-gpf',
-        dest='g_gpf',
+        dest='gen_gpf',
         action='store_true',
         help='generate gpf file'
     )
     parser.add_argument(
         '-gd','--gen-dpf',
-        dest='g_dpf',
+        dest='gen_dpf',
         action='store_true',
         help='generate dpf file'
     )
     parser.add_argument(
-        '-ms','--modify-maps',
-        dest='ms',
+        '-gs','--gen-ligand-gridshape',
+        dest='gen_ligand_gridshape',
+        action='store_true',
+        help='generate ligand grid shape file'
+    )
+    parser.add_argument(
+        '-ms','--modify-maps-types',
+        dest='maps_types',
+        metavar='m',
         nargs='+',
-        help='generate ligand-shaped maps for inputs'
+        help='ongoing modified maps'
+    )
+    parser.add_argument(
+        '-md','--modify-maps-dir',
+        dest='maps_dir',
+        help='process maps only in this folder, conflict with `-ms`'
+    )
+    parser.add_argument(
+        '--not-gen-mapshape',
+        dest='gen_mapshape',
+        action='store_false',
+        help='valid when `-ms` or `-md` is used, not generate grid shape file',
     )
     parser.add_argument(
         '-i','--fill-value',
         dest='fillval',
+        metavar='v',
         type=float,
-        help='valid when `-ms` is used, fill values'
+        help='valid when `-ms` or `-md` is used, fill values'
     )
     parser.add_argument(
         '--verbose',
@@ -583,36 +718,46 @@ def parsecmd():
         for i in FEATURES:
             print(i)
         return
+
+    if w.maps_dir and w.maps_types:
+        print('Fatal: conflict argument: --modify-maps-dir & --modify-maps-types')
+        return
+
     if w.npts:
         new = [i//2*2 for i in w.npts]
         if w.npts != new:
             print(f'Warning: npts: only even integers are accepted: {w.npts}')
             print(f'     ->  converted to: {new}')
             w.npts = new
-    xp = LigandShape(recfile=w.recfile,ligfile=w.ligfile,npts=w.npts,verbose=w.verbose)
+    xp = LigandShape(**vars(w))
 
-    if w.g_lig:
+    if w.gen_lig:
         xp.gen_pdbqt_for_ligand()
-    if w.g_rec:
+    if w.gen_rec:
         xp.gen_pdbqt_for_protein()
-    if w.g_box:
+    if w.gen_box:
         xp.gen_gridbox_pdb()
-    if w.g_gpf:
+    if w.gen_gpf:
         xp.gen_gpf()
-    if w.g_dpf:
+    if w.gen_dpf:
         xp.gen_dpf()
+    if w.gen_ligand_gridshape:
+        xp.gen_shape_on_ligfile()
 
-    if w.ms:
+    if w.maps_types:
+        ANCHOR = None
         alls = [i.lower() for i in xp.types_lig_s.split()]
-        news = [i for i in w.ms if i.lower() in alls]
-        if news != w.ms:
-            print(f'Warning: modify maps: not correspondent: {w.ms}')
+        news = [i for i in w.maps_types if i.lower() in alls]
+        if news != w.maps_types:
+            print(f'Warning: modify maps types: not correspondent: {w.maps_types}')
             keys = xp.types_lig_s.split()
             news = [keys[alls.index(i)] for i in news]
             print(f'     ->  converted to: {news}')
-            w.ms = news
-        xp.run(mapfiles=w.ms,fillval=w.fillval)
-
+            w.maps_types = news
+        xp.run(mapfiles=w.maps_types,fillval=w.fillval)
+    elif w.maps_dir:
+        if xp.mapfiles_dir:
+            xp.run(fillval=w.fillval)
 
 
 if __name__ == '__main__':

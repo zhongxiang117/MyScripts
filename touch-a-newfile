@@ -1,0 +1,11 @@
+#!/bin/bash
+
+for i in {1..1000}; do
+    if [[ ! -f newfile-$i ]]; then break; fi
+done
+
+touch ${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS} newfile-$i
+
+nautilus -s newfile-$i
+
+

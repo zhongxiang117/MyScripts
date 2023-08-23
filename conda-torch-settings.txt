@@ -1,0 +1,81 @@
+"""condarc
+channels:
+  - conda-forge
+  - defaults
+
+# When True,
+# conda updates itself any time a user updates or installs a package 
+# in the root environment. When False, conda updates itself only 
+# if the user manually issues a conda update command. The default is True.
+auto_update_conda: false
+
+#default_channels:
+#  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+#  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+#  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/msys2
+"""
+
+
+1) Download Miniconda from: https://docs.conda.io/en/latest/miniconda.html#linux-installers
+2) Activate and check Python version
+3) Install core libraries:
+  -> ipython matplotlib pandas notebook numpy scipy Cython
+  -> openbabel rdkit
+
+4) Link those core libraries to other envs by using file `zz.pth`
+
+5) Create new environment for `PyTorch`
+  -> install link: https://pytorch.org/get-started/locally/
+  -> previous version: https://pytorch.org/get-started/previous-versions/
+  
+  *) install `torch_geometric` by `pip`
+  
+  a) Get Torch version: 
+    -> python -c "import torch; print(torch.version.cuda)"    # output: 1.11.0.post202
+  b) Get Cuda Version:
+    -> python -c "import torch; print(torch.version.cuda)"    # output: 10.2
+  c) Find url from: https://data.pyg.org/whl/
+    -> Torch and Cuda version info are composed by `torch-1.11.0+cu102`,
+    -> thus, link: https://data.pyg.org/whl/torch-1.11.0+cu102.html
+
+  """
+  pip install torch_scatter torch_sparse torch_cluster torch_spline_conv \
+      -f https://data.pyg.org/whl/torch-1.11.0+cu102.html
+
+  DO CHECK after!
+  Note: torch_geometric>2.3.0 can only be used for PyTorch>1.12, otherwise, use 2.2.0 instead
+  link: https://github.com/pyg-team/pytorch_geometric/discussions/7033
+  """
+
+  -> additional libraries: networkx tensorboard
+  *) errors may happen in this step, search on it,
+  -> case: https://github.com/pytorch/pytorch/issues/74454    # use `pip install torch-sparse==0.6.14`
+
+
+6) codes for test:
+"""
+import torch; torch.zeros(2).cuda(); from torch_geometric.data import Data
+"""
+
+7) `nvcc` installed by:
+
+conda install -c nvidia cuda-nvcc
+
+
+
+```
+pytorch               1.11.0        cuda102py38hfdb21e3_202   conda-forge
+torchvision           0.12.0        cuda102py38h6ac7867_1     conda-forge
+cudatoolkit           10.2.89       hdec6ad0_12               conda-forge
+
+torch-cluster         1.6.1         pypi_0                    pypi
+torch-geometric       2.3.0         pypi_0                    pypi
+torch-scatter         2.1.1         pypi_0                    pypi
+torch-sparse          0.6.14        pypi_0                    pypi  # <- changed! initial is 0.6.17
+torch-spline-conv     1.2.2         pypi_0                    pypi
+
+tensorboard           2.14.0        pyhd8ed1ab_0              conda-forge
+```
+
+
+

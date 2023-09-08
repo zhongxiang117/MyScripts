@@ -3,11 +3,25 @@
 import os
 import sys
 import argparse
+import tokenize
 
-
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 __author__ = 'Xiang Zhong'
 
+builtins = [
+    'abs',  'all',  'any',  'bin',  'bool',  'bytearray',  'bytes',  'callable',
+    'chr',  'classmethod',  'compile',  'complex',  'delattr',  'dict',  'dir',
+    'divmod',  'enumerate',  'eval',  'filter',  'float',  'format',  'frozenset',
+    'getattr',  'globals',  'hasattr',  'hash',  'hex',  'id',  'input',  'int',
+    'isinstance',  'issubclass',  'iter',  'len',  'list',  'locals',  'map',
+    'max',  'min',  'next',  'object',  'oct',  'open',  'ord',  'pow',  'print',
+    'property',  'quit',  'range',  'raw_input',  'repr',  'reversed',  'round',
+    'set',  'setattr',  'slice',  'sorted',  'staticmethod',  'str',  'sum',
+    'super',  'tuple',  'type',  'vars',  'zip',
+
+    'os', 'sys', 'argparse', 'import',
+    'is', 'None', 'if', 'else', 'elif', 'and', 'or',
+]
 
 def enumerate_local_modules(path,include_sofile=None,strip=False):
     """return all python source and soname in `path`"""
@@ -106,6 +120,32 @@ def _zip_packall(fileobjs):
     print(f'Note: overall size reduction: {p} of original size')
 
 
+def get_module_variables(file):
+    if not file or not (isinstance(file,str) and os.path.isfile(file) and file.endswith('.py')):
+        return []
+    results = set()
+    indent = 0
+    operator = False
+    prevstr = ''
+    for tok in tokenize.generate_tokens(open(file,'rt').readline):
+        if tok[0] == tokenize.INDENT:
+            indent += 1
+        elif tok[0] == tokenize.DEDENT:
+            indent -= 1
+        elif tok[0] == tokenize.OP:
+            if tok[1] in ['(', '[','{']:
+                operator = True
+            elif tok[1] in [')', ']', '}']:
+                operator = False
+        elif tok[0] == tokenize.NAME and indent == 0 and not operator and prevstr != '.':
+            results.add(tok[1])
+        prevstr = tok[1]
+
+    both = results.intersection(builtins)
+    diff = results.difference(builtins)
+    return list(diff)+list(both)
+
+
 def main():
     parser = argparse.ArgumentParser(
         usage="""xpyminifier:
@@ -134,10 +174,16 @@ def main():
         help='input `-s` is a folder, recursively search all its modules'
     )
     parser.add_argument(
-        '-S', '--include_sofile',
+        '-S', '--include-sofile',
         dest='include_sofile',
         action='store_true',
         help='include sona files, valid when `-R` used'
+    )
+    parser.add_argument(
+        '-L', '--list-module-variables',
+        dest='list_module_variables',
+        action='store_true',
+        help='tool, only list python module type variables'
     )
 
     if len(sys.argv) <= 1:
@@ -160,7 +206,15 @@ def main():
                 for j in m:
                     files.append(os.path.join(i,j))
 
-    _zip_packall(files)
+    if args.list_module_variables:
+        for f in files:
+            results = get_module_variables(f)
+            if results:
+                print(f'\n>>>:: module variables for file: {f}')
+                print('  '.join(results))
+        print()
+    else:
+        _zip_packall(files)
 
 
 if __name__ == '__main__':

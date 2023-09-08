@@ -21,6 +21,8 @@ auto_update_conda: false
 3) Install core libraries:
   -> ipython matplotlib pandas notebook numpy scipy Cython
   -> openbabel rdkit
+  -> fortls (vscode fortran)
+  -> docutils esbonio sphinx-rtd-theme (vscode reStructedText)
 
 4) Link those core libraries to other envs by using file `zz.pth`
 

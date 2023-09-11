@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 
+from rdkit import Chem
+from rdkit.Chem.Draw import rdMolDraw2D
+from openbabel import pybel
+from rdkit.Chem import AllChem
 
 from MolKit import Read
 from AutoDockTools.MoleculePreparation import AD4LigandPreparation, AD4ReceptorPreparation
 
 import os
+import io
 import sys
 import shutil
 import argparse
+
 
 FEATURES = [
     'version 0.1.0  : XAutoDock',
@@ -18,7 +24,11 @@ FEATURES = [
     'version 0.5.1  : add more output info',
     'version 0.6.0  : add option `--centroid-at`',
     'version 0.7.0  : add option `--maps-dir`',
-    'version 0.8.0  : add option `--gen-ligand-gridshape`'
+    'version 0.8.0  : add option `--gen-ligand-gridshape`',
+    'version 0.9.0  : adjust parameters in `dpf`',
+    'version 0.10.0 : make option `--maps-dir` more versatile',
+    'version 0.11.0 : add option `--scale`',
+    'version 0.12.0 : interactive for `ROOT` selection',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -52,17 +62,18 @@ fld {gridfld}
 {maps}
 move {move}
 about {about}
-tran0 random                         # initial coordinates/A or random
-quaternion0 random                   # initial orientation
+tran0 0.0 0.0 0.0                    # initial coordinates/A or random
+quaternion0 0.0 0.0 0.0 1.0          # initial orientation or random
 dihe0 random                         # initial dihedrals (relative) or random
-torsdof 8                            # torsional degrees of freedom
+#torsdof 8                            # torsional degrees of freedom
 rmstol 2.0                           # cluster_tolerance/A
+rmsmode heavy_atoms_only
 extnrg 1000.0                        # external grid energy
 e0max 0.0 10000                      # max initial energy; max number of retries
 ga_pop_size 150                      # number of individuals in population
-ga_num_evals 25000                   # maximum number of energy evaluations
-ga_num_generations 2700              # maximum number of generations
-ga_elitism 1                         # number of top individuals to survive to next generation
+ga_num_evals 250000                  # maximum number of energy evaluations
+ga_num_generations 27000             # maximum number of generations
+ga_elitism 10                        # number of top individuals to survive to next generation
 ga_mutation_rate 0.02                # rate of gene mutation
 ga_crossover_rate 0.8                # rate of crossover
 ga_window_size 10                    #
@@ -142,6 +153,7 @@ class XADTPrep:
         elif isinstance(l,(list,tuple)):
             r = ' '.join([str(round(i,3)) for i in l])
         else:
+            r = ''
             bo = True
         if bo:
             if info:
@@ -232,18 +244,59 @@ class XADTPrep:
             self._flp.molecule.allAtoms.coords = self.ligxyz
 
     def gen_pdbqt_for_ligand(self,file=None,verbose=None):
-        if file:
-            self._gen_pdbqt_for_ligand(self,file,verbose)
-        else:
+        if not file:
+            file = self.ligfile
             if not self._flp:
                 print(f'Warning: no valid ligand is detected: {self.ligfile}')
                 return
+
+        ip = InteractiveRoot(file)
+        mols = Read(file)
+        mol = mols[0]
+        mol.buildBondsByDistance()
+        kws = dict(
+            mode='',charges_to_add='gasteiger',root='auto',cleanup='nphs_lps',
+            allowed_bonds='backbone',check_for_fragments=False,attach_singletons=False,
+            attach_nonbonded_fragments=False,inactivate_all_torsions=False,
+        )
+        prev = None
+        while True:
+            if prev:
+                kws['root'] = prev - 1        # ROOT starts from zero
+            flp = AD4LigandPreparation(mol,**kws)
+            fp = io.StringIO()
+            flp.writer.xzfpout = fp
+            flp.write('placeholder.pdbqt')
+            fp.seek(0)
+            fout = fp.read()
+            fp.close()
+            ip.draw(fout)
+            bo = False
+            while True:
+                c = input('Input your choose (to accept, just press Enter): ')
+                if len(c.strip()) == 0:
+                    bo = True
+                    break
+                try:
+                    c = int(c)
+                    if c < 0 or c > len(mol.allAtoms):
+                        raise IndexError
+                except:
+                    print('Warning: wrong input')
+                else:
+                    prev = c
+                    break
+            if bo:
+                self._flp = flp
+                flp.writer.xzfpout = None       # stop hacking
+                break
+
         print(f'Note: Writing ligand pdbqt to: {self.ligfile_s}.pdbqt')
         self._flp.write(self.ligfile_s+'.pdbqt')
         atomtypes = self.get_autodock_atomtypes(self.ligfile_s+'.pdbqt')
         atomtypes = list(set(atomtypes))
-        print('Note: processed ligand types: '+' '.join(atomtypes))
-        print('Note: processed ligand center: '+' '.join([str(i) for i in self.gridcenter]))
+        print('Note: processed ligand valid types: '+' '.join(atomtypes))
+        print('Note: processed ligand overall atoms center: '+' '.join([str(i) for i in self.gridcenter]))
 
     def gen_pdbqt_for_protein(self,file=None,verbose=None):
         if not file: file = self.recfile
@@ -296,6 +349,7 @@ class XADTPrep:
             CONECT    6    2    5    7
             CONECT    7    3    6    8
             CONECT    8    4    5    7
+            END
         """
         p = [i/2*spacing for i in npts]
         a = '{:8.3f}{:8.3f}{:8.3f}'.format(r[0]-p[0],r[1]-p[1],r[2]-p[2])
@@ -340,7 +394,7 @@ class ReadMap:
         self.center = [0.0, 0.0, 0.0]
         self.space = 0.375
         self.r = 0.0
-        self.d = 1.0
+        self.d = 2.0
 
     def read_map_from_autodock(self,mapfile=None,npts=None):
         if not mapfile: mapfile = self.mapfile
@@ -461,27 +515,60 @@ class ReadMap:
         left = alls.difference(overlaps)
         return overlaps,left
 
-    def fill_values(self,data,indexes,fillval=None):
+    def fill_values(self,data,indexes,fillval=None,scale=None):
+        if scale:
+            print(f'Note: scaleing value on grid points by: {scale}')
+            for ndx in indexes:
+                data[ndx[0]][ndx[1]][ndx[2]] *= scale
+            return
         if not fillval: fillval = 0.0
+        print(f'Note: unifying value on grid points by: {fillval}')
         for ndx in indexes:
             data[ndx[0]][ndx[1]][ndx[2]] = fillval
 
 
 class LigandShape(XADTPrep):
-    def __init__(self,mapfiles=None,maps_dir=None,gen_mapshape=None,r=None,d=None,*args,**kws):
+    def __init__(self,mapfiles=None,maps_dir=None,gen_mapshape=None,r=None,d=None,scale=None,*args,**kws):
         super().__init__(*args,**kws)
-        d = os.listdir(maps_dir) if maps_dir and os.path.isdir(maps_dir) else []
-        d = [i for i in d if i.endswith('.map')]
-        self.mapfiles_dir = [(os.path.join(maps_dir,i),os.path.basename(i)) for i in d]
-        if self.mapfiles_dir:
-            print(f'Note: processing on maps_dir: {maps_dir}')
-            print('   >> found map files: '+' '.join(d))
+
+        if maps_dir is None:
+            pass
+        elif isinstance(maps_dir,list):
+            maps_dir = ' '.join(maps_dir).replace(',',' ').replace(';',' ').split()
+        elif isinstance(maps_dir,str):
+            maps_dir = maps_dir.replace(',',' ').replace(';',' ').split()
+        else:
+            print(f'Warning: wrong defined maps_dir: {maps_dir}: ignored')
+            maps_dir = []
+        if maps_dir:
+            d = os.listdir(maps_dir[0]) if os.path.isdir(maps_dir[0]) else []
+            d = [i for i in d if i.endswith('.map')]
+            if len(maps_dir) > 1:
+                vs = [os.path.splitext(os.path.splitext(i)[0])[1] for i in d]
+                vs = [i.replace('.', ' ').strip() for i in vs]
+                if len(vs) != len(set(vs)):
+                    print('Warning: similar maps exist in `maps_dir`, unexpected results will happen')
+                p = []
+                for k in maps_dir[1:]:
+                    for v in zip(d,vs):
+                        if k in v:
+                            p.append(v[0])      # use full name
+                            break
+                d = p   # alias
+            self.mapfiles_dir = [(os.path.join(maps_dir[0],i),os.path.basename(i)) for i in d]
+            if self.mapfiles_dir:
+                print(f'Note: processing on maps_dir: {maps_dir[0]}')
+                print('   >> map files: '+' '.join(d))
+        else:
+            self.mapfiles_dir = []
+
         self.mapfiles = self._norm_mapfiles(mapfiles)
         if self.mapfiles and self.mapfiles_dir:
             print('Warning: conflicts: self.mapfile & maps_dir')
         self.gen_mapshape = False if gen_mapshape is False else True
         self.r = 0.0    # atomic radii
         self.d = 1.0    # distance
+        self.scale = scale
 
     def _norm_mapfiles(self,mapfiles):
         if isinstance(mapfiles,(list,tuple)):
@@ -501,6 +588,9 @@ class LigandShape(XADTPrep):
             mapfiles = []
 
     def run(self,mapfiles=None,fillval=None):
+        if not self.ligxyz:
+            print('Fatal: ligand `-l` is not specified')
+            return
         mapfiles = self._norm_mapfiles(mapfiles)
         if not mapfiles:
             if self.mapfiles_dir:
@@ -518,10 +608,11 @@ class LigandShape(XADTPrep):
             else:
                 o = True
                 m, b = m[0],m[1]
+            print(f'Note: processing mapfile: {m}')
             data = fn.read_map_from_autodock(mapfile=m)
             if not data: continue
             overlaps,left = fn.calc_indexs(self.ligxyz)
-            fn.fill_values(data,left,fillval)
+            fn.fill_values(data,left,fillval,self.scale)
             fn.save_autodock_map_from_data(data,b,overwrite=o)
 
             if self.gen_mapshape:
@@ -570,6 +661,96 @@ class LigandShape(XADTPrep):
         self._gen_shape(center,npts,space,overlaps,self.ligfile,'gridshape-')
 
 
+class InteractiveRoot:
+    def __init__(self,file=None,*args,**kws):
+        self.nice = True
+        # openbabel must be used to read file
+        if file and os.path.isfile(file):
+            if file.endswith('.pdbqt'):
+                net = next(pybel.readfile('pdbqt',file))
+                self.mol = Chem.MolFromPDBBlock(net.write('pdb'))
+            elif file.endswith('pdb'):
+                net = next(pybel.readfile('pdb',file))
+                self.mol = Chem.MolFromPDBBlock(net.write('pdb'))
+            else:
+                print(f'Warning: InteractiveRoot: not support: {file}')
+                self.nice = False
+        else:
+            print(f'Warning: InteractiveRoot: not a file {file}')
+            self.nice = False
+        if self.mol:
+            self.newmol = Chem.Mol(self.mol)
+            AllChem.Compute2DCoords(self.newmol)
+        else:
+            self.nice = False
+
+    def draw(self,fout=None):
+        if not self.nice or not fout: return
+
+        marklines = []
+        for i in fout.split('\n'):
+            if i.startswith('XZMARK:'):
+                marklines.append(i.replace(':',' ').replace(',',' ').split())
+
+        rootndx = []
+        branchndx = []
+        for u in marklines:
+            if len(u) == 5:
+                elem = u[2].split('=')[1].strip()
+                if elem.lower() != 'h':
+                    name = u[3].split('=')[1].strip()
+                    coor = list(map(float,u[4].split('=')[1].split('_')))
+                    rootndx.append((elem,name,*coor))
+            elif len(u) == 8:
+                elem1 = u[2].split('=')[1].strip()
+                name1 = u[3].split('=')[1].strip()
+                coor1 = list(map(float,u[4].split('=')[1].split('_')))
+                elem2 = u[5].split('=')[1].strip()
+                name2 = u[6].split('=')[1].strip()
+                coor2 = list(map(float,u[7].split('=')[1].split('_')))
+                branchndx.append((elem1,name1,*coor1))
+                branchndx.append((elem2,name2,*coor2))
+
+        hitatoms = []
+        conf = self.mol.GetConformer()
+        for g in rootndx+branchndx:
+            for i,c in enumerate(conf.GetPositions()):
+                if abs(g[2]-c[0])<0.002 and abs(g[3]-c[1])<0.002 and abs(g[4]-c[2])<0.002:
+                    hitatoms.append(i)
+                    break
+
+        n = len(rootndx)
+        rootatoms = hitatoms[:n]
+        hitbonds = []
+        for i in range(0,len(branchndx),2):
+            a1 = hitatoms[n+i]
+            a2 = hitatoms[n+i+1]
+            hitbonds.append(self.mol.GetBondBetweenAtoms(a1,a2).GetIdx())
+
+        for i,a in enumerate(self.newmol.GetAtoms()):
+            a.SetProp("atomNote", str(a.GetIdx()+1))
+
+        rootcolor = dict([(i,(0.0,1.0,0.25)) for i in rootatoms])
+
+        p = rdMolDraw2D.MolDraw2DCairo(1000,1000)
+        p.drawOptions().addAtomIndices = False
+        rdMolDraw2D.PrepareAndDrawMolecule(
+            p, self.newmol, highlightAtoms=rootatoms, highlightAtomColors=rootcolor,
+            highlightBonds=hitbonds,
+        )
+        p.FinishDrawing()
+        i = 1
+        while True:
+            file = 'root-picker-'+str(i)+'.png'
+            if not os.path.isfile(file):
+                break
+            i += 1
+        p.WriteDrawingText(file)
+        print(f'\nNote: check file for inspection: {file}')
+        print('Note: atoms in green means ROOT, bonds in red are Rotatable')
+        print('Note: use the number to indicate New ROOT, otherwise ENTER for continuing')
+
+
 def parsecmd():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -590,11 +771,18 @@ XAutoDock {VERSION}. General Usage:
 
 5. to modify exist map files
 # use receptor's basename locate maps
->>> xdock.py -l ligand.pdb -r receptor.pdb -ms A C [--not-gen-gridshape]
+>>> xdock.py -l ligand.pdb -r receptor.pdb -ms A C [--gen-mapshape]
 # use full mapfiles name
->>> xdock.py -l ligand.pdb -ms receptor.A.map receptor.C.map [--not-gen-gridshape]
+>>> xdock.py -l ligand.pdb -ms receptor.A.map receptor.C.map [--gen-mapshape]
 # use a folder
->>> xdock.py -l ligand.pdb -md /path/to/dir-maps [--not-gen-gridshape]
+>>> xdock.py -l ligand.pdb -md /path/to/dir-maps [--gen-mapshape]
+## suppose /path/to/dir-maps have map files: `rep.A.map`, `rep.C.map`, `rep.N.map`
+#### modify all maps
+>>> xdock.py -l ligand.pdb -md /path/to/dir-maps [--gen-mapshape]
+#### modify `A` and `N` maps, use full name
+>>> xdock.py -l ligand.pdb -md /path/to/dir-maps rep.A.map rep.N.map [--gen-mapshape]
+#### or, alternatively, prefix and suffix will be auto added
+>>> xdock.py -l ligand.pdb -md /path/to/dir-maps A N [--gen-mapshape]
 
 6. centroid ligand first, then generate its shape
 >>> xdock.py -l ligand.pdb -ms receptor.A.map -c 0.0 0.0 0.0
@@ -682,14 +870,19 @@ XAutoDock {VERSION}. General Usage:
     )
     parser.add_argument(
         '-md','--modify-maps-dir',
+        metavar='v',
+        nargs='+',
         dest='maps_dir',
-        help='process maps only in this folder, conflict with `-ms`'
+        help=(
+            'process maps only in this folder, conflict with `-ms`, the first value should '
+            'be the path of folder, the following values are maps will be modified'
+        )
     )
     parser.add_argument(
-        '--not-gen-mapshape',
+        '--gen-mapshape',
         dest='gen_mapshape',
-        action='store_false',
-        help='valid when `-ms` or `-md` is used, not generate grid shape file',
+        action='store_true',
+        help='valid when `-ms` or `-md` is used, generate grid shape file',
     )
     parser.add_argument(
         '-i','--fill-value',
@@ -697,6 +890,13 @@ XAutoDock {VERSION}. General Usage:
         metavar='v',
         type=float,
         help='valid when `-ms` or `-md` is used, fill values'
+    )
+    parser.add_argument(
+        '-s','--scale',
+        dest='scale',
+        metavar='v',
+        type=float,
+        help='valid when `-ms` or `-md` is used, scale value on grid point'
     )
     parser.add_argument(
         '--verbose',

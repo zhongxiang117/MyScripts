@@ -4,8 +4,16 @@ import os
 import sys
 import argparse
 import tokenize
+import py_compile
 
-__version__ = '0.2.0'
+
+FEATURES = [
+    'version 0.1.0 : start',
+    'version 0.2.0 : add local modules filter for `builtins`',
+    'version 0.3.0 : add option `--no-precompile` for `pyc` support',
+]
+
+__version__ = FEATURES[-1].split()[1]
 __author__ = 'Xiang Zhong'
 
 builtins = [
@@ -47,7 +55,7 @@ def enumerate_local_modules(path,include_sofile=None,strip=False):
     return list(local_modules)
 
 
-def _zip_packall(fileobjs):
+def _zip_packall(fileobjs,precompile=True):
     """
     Args:
         fileobjs : [(fobj, modulename), filename, ...]      # tuple 2 | file
@@ -75,7 +83,13 @@ def _zip_packall(fileobjs):
         return
 
     # This is so it will still execute as a zip
-    finals[0] = (finals[0][0],'__main__.py')
+    if finals[0][0].endswith('.py'):
+        finals[0] = (finals[0][0],'__main__.py')
+    elif finals[0][0].endswith('.pyc'):
+        finals[0] = (finals[0][0],'__main__.pyc')
+    else:
+        print('Warning: not a python source: zipfile::__main__')
+        finals[0] = (finals[0][0],'__main__.py')
 
     i = 1
     while True:
@@ -88,16 +102,21 @@ def _zip_packall(fileobjs):
     z = zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED)
     total_old_size = 0.0
     for t in finals:
-        if isinstance(t[0],str):
+        if os.path.isfile(t[0]):
             file = t[0]
         else:
-            w = tempfile.NamedTemporaryFile(mode='w')
+            w = tempfile.NamedTemporaryFile(mode='w',suffix='.py')
             w.write(t[0].read())
             w.flush()
             file = w.name
         total_old_size += os.path.getsize(file)
-        print(f'Note: zipfile writing::: {t[1]}')
-        z.write(file, t[1])
+        if precompile and file.endswith('.py'):
+            file = py_compile.compile(file,file+'c')
+            m = t[1] if t[1].endswith('.pyc') else t[1]+'c'
+        else:
+            m = t[1]
+        print(f'Note: zipfile writing::: {m}')
+        z.write(file, m)
         if not isinstance(t[0],str):
             w.close()
     z.close()
@@ -174,6 +193,12 @@ def main():
         help='input `-s` is a folder, recursively search all its modules'
     )
     parser.add_argument(
+        '-NC', '--no-precompile',
+        dest='no_precompile',
+        action='store_true',
+        help='no precompile python source before writing to zip executable'
+    )
+    parser.add_argument(
         '-S', '--include-sofile',
         dest='include_sofile',
         action='store_true',
@@ -214,7 +239,8 @@ def main():
                 print('  '.join(results))
         print()
     else:
-        _zip_packall(files)
+        bo = False if args.no_precompile is True else True
+        _zip_packall(files,precompile=bo)
 
 
 if __name__ == '__main__':

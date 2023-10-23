@@ -29,6 +29,7 @@ FEATURES = [
     'version 0.10.0 : make option `--maps-dir` more versatile',
     'version 0.11.0 : add option `--scale`',
     'version 0.12.0 : interactive for `ROOT` selection',
+    'version 0.13.0 : add selection mode for `ROOT`',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -119,6 +120,7 @@ class XADTPrep:
     def __init__(
         self,recfile=None,ligfile=None,centroid_at=None,
         npts=None,gridcenter=None,ligand_types=None,receptor_types=None,
+        gen_lig_mode=None,
         verbose=None,*args,**kws
     ):
         self.verbose = True if verbose is True else False
@@ -135,6 +137,7 @@ class XADTPrep:
         self.ligxyz = None
         self._flp = None
         self._gen_pdbqt_for_ligand()
+        self.gen_lig_mode = gen_lig_mode
 
         self.npts_s = self._norm(npts,'60,60,60','npts')
         if not gridcenter: gridcenter = self.gridcenter     # calc'ed from above
@@ -259,42 +262,75 @@ class XADTPrep:
             allowed_bonds='backbone',check_for_fragments=False,attach_singletons=False,
             attach_nonbonded_fragments=False,inactivate_all_torsions=False,
         )
-        prev = None
-        while True:
-            if prev:
-                kws['root'] = prev - 1        # ROOT starts from zero
-            flp = AD4LigandPreparation(mol,**kws)
-            fp = io.StringIO()
-            flp.writer.xzfpout = fp
-            flp.write('placeholder.pdbqt')
-            fp.seek(0)
-            fout = fp.read()
-            fp.close()
-            ip.draw(fout)
-            bo = False
+
+        if self.gen_lig_mode in [None,0]:       # interactive mode
+            prev = None
             while True:
-                c = input('Input your choose (to accept, just press Enter): ')
-                if len(c.strip()) == 0:
-                    bo = True
+                if prev:
+                    kws['root'] = prev - 1      # ROOT starts from zero
+                flp = AD4LigandPreparation(mol,**kws)
+                fp = io.StringIO()
+                flp.writer.xzfpout = fp
+                flp.write('placeholder.pdbqt')
+                fp.seek(0)
+                fout = fp.read()
+                fp.close()
+                rootcenter = ip.draw(fout)
+                bo = False
+                while True:
+                    c = input('Input your choose (to accept, just press Enter): ')
+                    if len(c.strip()) == 0:
+                        bo = True
+                        break
+                    try:
+                        c = int(c)
+                        if c < 0 or c > len(mol.allAtoms):
+                            raise IndexError
+                    except:
+                        print('Warning: wrong input')
+                    else:
+                        prev = c
+                        break
+                if bo:
+                    self._flp = flp
+                    flp.writer.xzfpout = None       # stop hacking
+                    self.gc_s = self._norm(rootcenter,'auto','gridcenter')
                     break
-                try:
-                    c = int(c)
-                    if c < 0 or c > len(mol.allAtoms):
-                        raise IndexError
-                except:
-                    print('Warning: wrong input')
+        elif self.gen_lig_mode in [1,2]:            # number of atoms
+            reflist = []
+            atomndx = set(list(range(1,len(self.ligxyz)+1)))
+            root = 'auto'
+            while True:
+                flp = AD4LigandPreparation(mol,**kws)
+                fp = io.StringIO()
+                flp.writer.xzfpout = fp
+                flp.write('placeholder.pdbqt')
+                fp.seek(0)
+                fout = fp.read()
+                fp.close()
+                rootatomndx,rootcenter = ip.draw(fout,bool_draw=False)
+                reflist.append((root,len(rootatomndx)))
+                atomndx = atomndx.difference(rootatomndx)
+                if len(atomndx):
+                    root = atomndx.pop()
+                    kws['root'] = root - 1          # ROOT starts from zero
                 else:
-                    prev = c
                     break
-            if bo:
-                self._flp = flp
-                flp.writer.xzfpout = None       # stop hacking
-                break
+            ndxes = sorted(reflist,key=lambda k:k[1])   # from smallest to bigest
+            if self.gen_lig_mode == 2:
+                print('Note: using the least number of atoms to set root')
+                kws['root'] = ndxes[0][0] if ndxes[0][0] == 'auto' else ndxes[0][0]-1
+            else:
+                print('Note: using the most number of atoms to set root')
+                kws['root'] = ndxes[-1][0] if ndxes[-1][0] == 'auto' else ndxes[-1][0]-1
+            self._flp = AD4LigandPreparation(mol,**kws)
+            self.gc_s = self._norm(rootcenter,'auto','gridcenter')
 
         print(f'Note: Writing ligand pdbqt to: {self.ligfile_s}.pdbqt')
         self._flp.write(self.ligfile_s+'.pdbqt')
         atomtypes = self.get_autodock_atomtypes(self.ligfile_s+'.pdbqt')
         atomtypes = list(set(atomtypes))
+        self.types_lig_s = ' '.join(atomtypes)
         print('Note: processed ligand valid types: '+' '.join(atomtypes))
         print('Note: processed ligand overall atoms center: '+' '.join([str(i) for i in self.gridcenter]))
 
@@ -528,7 +564,10 @@ class ReadMap:
 
 
 class LigandShape(XADTPrep):
-    def __init__(self,mapfiles=None,maps_dir=None,gen_mapshape=None,r=None,d=None,scale=None,*args,**kws):
+    def __init__(
+        self,mapfiles=None,maps_dir=None,gen_mapshape=None,r=None,d=None,scale=None,
+        *args,**kws
+    ):
         super().__init__(*args,**kws)
 
         if maps_dir is None:
@@ -669,7 +708,7 @@ class InteractiveRoot:
             if file.endswith('.pdbqt'):
                 net = next(pybel.readfile('pdbqt',file))
                 self.mol = Chem.MolFromPDBBlock(net.write('pdb'))
-            elif file.endswith('pdb'):
+            elif file.endswith('.pdb'):
                 net = next(pybel.readfile('pdb',file))
                 self.mol = Chem.MolFromPDBBlock(net.write('pdb'))
             else:
@@ -684,9 +723,13 @@ class InteractiveRoot:
         else:
             self.nice = False
 
-    def draw(self,fout=None):
+    def draw(self,fout=None,bool_draw=True):
         if not self.nice or not fout: return
 
+        # [
+        #   ['XZMARK', 'ROOT',   element="ad_atomtype", name="pdb_atomname", coords="x_y_z"], ...
+        #   ['XZMARK', 'BRANCH', element="ad_atomtype", name="pdb_atomname", coords="x_y_z"], ...
+        # ]
         marklines = []
         for i in fout.split('\n'):
             if i.startswith('XZMARK:'):
@@ -721,6 +764,14 @@ class InteractiveRoot:
 
         n = len(rootndx)
         rootatoms = hitatoms[:n]
+        rcx = round(sum([i[2] for i in rootndx])/n, 3)
+        rcy = round(sum([i[3] for i in rootndx])/n, 3)
+        rcz = round(sum([i[4] for i in rootndx])/n, 3)
+        print(f'\nNote: processed ligand root atoms center: {rcx} {rcy} {rcz}')
+
+        if not bool_draw:
+            return rootatoms, (rcx,rcy,rcz)
+
         hitbonds = []
         for i in range(0,len(branchndx),2):
             a1 = hitatoms[n+i]
@@ -746,9 +797,10 @@ class InteractiveRoot:
                 break
             i += 1
         p.WriteDrawingText(file)
-        print(f'\nNote: check file for inspection: {file}')
+        print(f'Note: check file for inspection: {file}')
         print('Note: atoms in green means ROOT, bonds in red are Rotatable')
         print('Note: use the number to indicate New ROOT, otherwise ENTER for continuing')
+        return [rcx,rcy,rcz]
 
 
 def parsecmd():
@@ -836,6 +888,14 @@ XAutoDock {VERSION}. General Usage:
         dest='gen_lig',
         action='store_true',
         help='parse input ligand file and then generate pdbqt file'
+    )
+    parser.add_argument(
+        '-glm','--gl-mode',
+        dest='gen_lig_mode',
+        default=0,
+        type=int,
+        choices={0,1,2},
+        help='valid when `-gl`, mode: 0(interactive), 1(max atoms), 2(least atoms)'
     )
     parser.add_argument(
         '-gr','--gen-receptor-pdbqt',
@@ -931,7 +991,7 @@ XAutoDock {VERSION}. General Usage:
             w.npts = new
     xp = LigandShape(**vars(w))
 
-    if w.gen_lig:
+    if w.gen_lig:       # has to be put in first
         xp.gen_pdbqt_for_ligand()
     if w.gen_rec:
         xp.gen_pdbqt_for_protein()
@@ -945,7 +1005,6 @@ XAutoDock {VERSION}. General Usage:
         xp.gen_shape_on_ligfile()
 
     if w.maps_types:
-        ANCHOR = None
         alls = [i.lower() for i in xp.types_lig_s.split()]
         news = [i for i in w.maps_types if i.lower() in alls]
         if news != w.maps_types:
@@ -961,6 +1020,7 @@ XAutoDock {VERSION}. General Usage:
 
 
 if __name__ == '__main__':
+    ANCHOR = None
     parsecmd()
 
 

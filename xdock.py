@@ -30,9 +30,11 @@ FEATURES = [
     'version 0.11.0 : add option `--scale`',
     'version 0.12.0 : interactive for `ROOT` selection',
     'version 0.13.0 : add selection mode for `ROOT`',
+    'version 0.14.0 : add options `-fgpf` and `-fdpf`',
+    'version 0.15.0 : fix hidden bug for bridge rings, `attr:processed_bonds`',
 ]
 
-VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
+VERSION = FEATURES[-1].split()[1]
 __version__ = VERSION
 
 # maximum only 14 atom types can be defined
@@ -118,7 +120,7 @@ def xnewfile(file,head=None,includedir=None):
 
 class XADTPrep:
     def __init__(
-        self,recfile=None,ligfile=None,centroid_at=None,
+        self,recfile=None,ligfile=None,centroid_at=None,fdpf=None,fgpf=None,
         npts=None,gridcenter=None,ligand_types=None,receptor_types=None,
         gen_lig_mode=None,
         verbose=None,*args,**kws
@@ -128,6 +130,8 @@ class XADTPrep:
         # be aware, basename should be used!
         self.recfile_s = os.path.basename(os.path.splitext(self.recfile)[0])
         self.recfile_s = xnewfile(self.recfile_s)
+        self.fdpf = fdpf if fdpf else self.recfile_s
+        self.fgpf = fgpf if fgpf else self.recfile_s
 
         self.ligfile = ligfile if ligfile else 'ligand.pdb'
         self.ligfile_s = os.path.basename(os.path.splitext(self.ligfile)[0])
@@ -180,7 +184,7 @@ class XADTPrep:
                 ['elecmap '+self.recfile_s+'.e.map', 'dsolvmap '+self.recfile_s+'.d.map']
             )
         )
-        self.write(gpf,self.recfile_s+'.gpf')
+        self.write(gpf,self.fgpf)
 
     def gen_dpf(self):
         dpf = TEMPLATE_DPF.format(
@@ -193,7 +197,7 @@ class XADTPrep:
             move=self.ligfile_s+'.pdbqt',
             about=self.gc_s,
         )
-        self.write(dpf,self.recfile_s+'.dpf')
+        self.write(dpf,self.fdpf)
 
     def write(self,contents,outfile=None):
         if not outfile: outfile = 'xautodock.file'
@@ -268,6 +272,8 @@ class XADTPrep:
             while True:
                 if prev:
                     kws['root'] = prev - 1      # ROOT starts from zero
+                if hasattr(mol,'processed_bonds'):
+                    del mol.processed_bonds
                 flp = AD4LigandPreparation(mol,**kws)
                 fp = io.StringIO()
                 flp.writer.xzfpout = fp
@@ -910,10 +916,20 @@ XAutoDock {VERSION}. General Usage:
         help='generate gpf file'
     )
     parser.add_argument(
+        '-fgpf','--filename-gpf',
+        dest='fgpf',
+        help='output filename for gpf'
+    )
+    parser.add_argument(
         '-gd','--gen-dpf',
         dest='gen_dpf',
         action='store_true',
         help='generate dpf file'
+    )
+    parser.add_argument(
+        '-fdpf','--filename-dpf',
+        dest='fdpf',
+        help='output filename for dpf'
     )
     parser.add_argument(
         '-gs','--gen-ligand-gridshape',

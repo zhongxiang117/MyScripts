@@ -11,6 +11,7 @@ FEATURES = [
     'version 0.1.0 : start',
     'version 0.2.0 : add local modules filter for `builtins`',
     'version 0.3.0 : add option `--no-precompile` for `pyc` support',
+    'version 0.4.0 : change option `--no-precompile` to `precompile`',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -193,10 +194,10 @@ def main():
         help='input `-s` is a folder, recursively search all its modules'
     )
     parser.add_argument(
-        '-NC', '--no-precompile',
-        dest='no_precompile',
+        '-C', '--precompile',
+        dest='precompile',
         action='store_true',
-        help='no precompile python source before writing to zip executable'
+        help='precompile python source before writing to zip executable'
     )
     parser.add_argument(
         '-S', '--include-sofile',
@@ -239,7 +240,7 @@ def main():
                 print('  '.join(results))
         print()
     else:
-        bo = False if args.no_precompile is True else True
+        bo = True if args.precompile else False
         _zip_packall(files,precompile=bo)
 
 

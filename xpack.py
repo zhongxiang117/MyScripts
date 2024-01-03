@@ -12,6 +12,8 @@ FEATURES = [
     'version 0.2.0 : add local modules filter for `builtins`',
     'version 0.3.0 : add option `--no-precompile` for `pyc` support',
     'version 0.4.0 : change option `--no-precompile` to `precompile`',
+    'version 0.5.0 : add parser for non-py file',
+    'version 0.5.1 : avoid duplicate file',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -32,8 +34,8 @@ builtins = [
     'is', 'None', 'if', 'else', 'elif', 'and', 'or',
 ]
 
-def enumerate_local_modules(path,include_sofile=None,strip=False):
-    """return all python source and soname in `path`"""
+def enumerate_local_modules(path,include_files=None,strip=False):
+    """return all python source and include_files in `path`"""
     local_modules = set()
     old = os.getcwd()
     full = os.path.abspath(path)
@@ -45,7 +47,7 @@ def enumerate_local_modules(path,include_sofile=None,strip=False):
             bo = False
             if f.endswith('.py'):
                 bo = True
-            if include_sofile and f.endswith('.so'):
+            if include_files and f in include_files:
                 bo = True
             if bo:
                 if strip:
@@ -98,7 +100,7 @@ def _zip_packall(fileobjs,precompile=True):
         if not os.path.isfile(dest):
             break
         i += 1
-    print(f'Note: zipfile will be save to: {dest}')
+    print(f'Note: zipfile will be saved to: {dest}')
     # Hopefully some day we'll be able to use ZIP_LZMA to save even more space
     z = zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED)
     total_old_size = 0.0
@@ -118,7 +120,7 @@ def _zip_packall(fileobjs,precompile=True):
             m = t[1]
         print(f'Note: zipfile writing::: {m}')
         z.write(file, m)
-        if not isinstance(t[0],str):
+        if not os.path.isfile(t[0]):
             w.close()
     z.close()
 
@@ -128,7 +130,9 @@ def _zip_packall(fileobjs,precompile=True):
         if not os.path.isfile(exe):
             break
         i += 1
-    print(f'Note: executable will be save to: {exe}')
+    print(f'Note: executable will be saved to: {exe}')
+    s = 'Has' if precompile else 'No'
+    print(f' ->  {s} precompile used')
 
     with open(exe, 'wb') as f:
         f.write(b'#!/usr/bin/env python3\n')
@@ -163,15 +167,18 @@ def get_module_variables(file):
 
     both = results.intersection(builtins)
     diff = results.difference(builtins)
-    return list(diff)+list(both)
+    return sorted(list(diff))+sorted(list(both))
 
 
 def main():
     parser = argparse.ArgumentParser(
-        usage="""xpyminifier:
+        usage="""xpack.py:
+
+# check files will be processed
+>>> xpack.py -s scrfile1 [scrfile2, dir, ...]  -i add1.dat add2.md -L
 
 # pack all files
->>> xpack.py -s scrfile1 [scrfile2, ...]  [--recursive]
+>>> xpack.py -s scrfile1 [scrfile2, dir, ...]  -i add1.dat add2.md
 
 """,
         allow_abbrev=False,
@@ -185,13 +192,7 @@ def main():
         '-s', '--srcfiles',
         dest='srcfiles',
         nargs='+',
-        help='source files need to be processed'
-    )
-    parser.add_argument(
-        '-R', '--recursive',
-        dest='recursive',
-        action='store_true',
-        help='input `-s` is a folder, recursively search all its modules'
+        help='source files or folders need to be processed'
     )
     parser.add_argument(
         '-C', '--precompile',
@@ -200,18 +201,23 @@ def main():
         help='precompile python source before writing to zip executable'
     )
     parser.add_argument(
-        '-S', '--include-sofile',
-        dest='include_sofile',
-        action='store_true',
-        help='include sona files, valid when `-R` used'
+        '-i', '--include-files',
+        dest='include_files',
+        nargs='+',
+        help='include additional files, such as README or data file'
     )
     parser.add_argument(
-        '-L', '--list-module-variables',
+        '-L', '--list-modules',
+        dest='list_modules',
+        action='store_true',
+        help='tool, only list python module type variables'
+    )
+    parser.add_argument(
+        '-M', '--list-module-variables',
         dest='list_module_variables',
         action='store_true',
         help='tool, only list python module type variables'
     )
-
     if len(sys.argv) <= 1:
         parser.print_help()
         sys.exit(0)
@@ -220,18 +226,31 @@ def main():
     if args.srcfiles:
         if not os.path.isfile(args.srcfiles[0]):
             print(f'Fatal: the first input is not a file: {args.srcfiles[0]}')
+            sys.exit(0)
     else:
         print('Fatal: no inputs')
         sys.exit(0)
 
-    files = [i for i in args.srcfiles if os.path.isfile(i)]
-    if args.recursive:
-        for i in args.srcfiles:
-            if os.path.isdir(i):
-                m = enumerate_local_modules(i,include_sofile=args.include_sofile,strip=False)
-                for j in m:
-                    files.append(os.path.join(i,j))
-
+    files = []
+    for i in args.srcfiles:
+        if os.path.isfile(i):
+            v = os.path.normpath(i)
+            if v not in files:
+                files.append(v)
+    for i in args.srcfiles:
+        if os.path.isdir(i):
+            m = enumerate_local_modules(i,include_files=args.include_files,strip=False)
+            for j in m:
+                k = os.path.normpath(os.path.join(i,j))
+                if k not in files:
+                    files.append(k)
+    bo = True
+    if args.list_modules:
+        print('\nNote: going to include files:')
+        for i in files:
+            print(f' ->  {i}')
+        print()
+        bo = False
     if args.list_module_variables:
         for f in files:
             results = get_module_variables(f)
@@ -239,7 +258,8 @@ def main():
                 print(f'\n>>>:: module variables for file: {f}')
                 print('  '.join(results))
         print()
-    else:
+        bo = False
+    if bo:
         bo = True if args.precompile else False
         _zip_packall(files,precompile=bo)
 

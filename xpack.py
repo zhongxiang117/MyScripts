@@ -17,6 +17,7 @@ FEATURES = [
     'version 0.5.0 : add parser for non-py file',
     'version 0.5.1 : avoid duplicate file',
     'version 0.6.0 : add `pyminifier`',
+    'version 0.6.1 : remove beginning docstring',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -96,7 +97,7 @@ def remove_blank_lines_and_spaces2(source):
     for line in source.split('\n'):
         result += line.rstrip() + '\n'              # only remove right whitespace
     tokens = xtokenize(result)
-    prev = -1
+    prev = 4
     for tok in tokens:
         if tok[0] == 61:
             if prev == 4:   # newline already exist
@@ -407,7 +408,9 @@ def _zip_packall(fileobjs,precompile=True):
             finals.append((t,t))
         elif isinstance(t,(list,tuple)) and len(t) == 2:
             if isinstance(t[1],str):
-                if (os.path.isfile(t[0]) or hasattr(t[0],'read')):
+                if os.path.isfile(t[0]):
+                    finals.append(t)
+                elif isinstance(t[0],str) and hasattr(t[0],'read'):
                     finals.append((t[0].read(),t[1]))
                 elif isinstance(t[0],str):      # str, source contents
                     finals.append(t)

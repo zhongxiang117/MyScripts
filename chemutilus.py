@@ -10,8 +10,32 @@ FEATURES = [
     'version 0.1.0  : Chemoinfo Utilities, Nov 2nd, 2022',
 ]
 
-VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
+VERSION = FEATURES[-1].split()[1]
 __version__ = VERSION
+
+
+PDB_STD_RESIDUES = {
+    'ALA': ['N', 'C', 'O', 'CA', 'CB'],
+    'CYS': ['N', 'C', 'O', 'CA', 'CB', 'SG'],
+    'ASP': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'OD1', 'OD2'],
+    'GLU': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD', 'OE1', 'OE2'],
+    'PHE': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ'],
+    'GLY': ['N', 'C', 'O', 'CA'],
+    'HIS': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'ND1', 'CD2', 'CE1', 'NE2'],
+    'ILE': ['N', 'C', 'O', 'CA', 'CB', 'CG1', 'CG2', 'CD1'],
+    'LYS': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD', 'CE', 'NZ'],
+    'LEU': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD1', 'CD2'],
+    'MET': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'SD', 'CE'],
+    'ASN': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'OD1', 'ND2'],
+    'PRO': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD'],
+    'GLN': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD', 'OE1', 'NE2'],
+    'ARG': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD', 'NE', 'CZ', 'NH1', 'NH2'],
+    'SER': ['N', 'C', 'O', 'CA', 'CB', 'OG'],
+    'THR': ['N', 'C', 'O', 'CA', 'CB', 'OG1', 'CG2'],
+    'VAL': ['N', 'C', 'O', 'CA', 'CB', 'CG1', 'CG2'],
+    'TRP': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD1', 'CD2', 'NE1', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2'],
+    'TYR': ['N', 'C', 'O', 'CA', 'CB', 'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'OH'],
+}
 
 
 ATOMIC_MASS = {

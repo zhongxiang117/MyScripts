@@ -17,7 +17,7 @@ FEATURES = [
     'version 0.5.0 : add parser for non-py file',
     'version 0.5.1 : avoid duplicate file',
     'version 0.6.0 : add `pyminifier`',
-    'version 0.6.1 : remove beginning docstring',
+    'version 0.7.0 : add `--mini-files`',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -97,7 +97,7 @@ def remove_blank_lines_and_spaces2(source):
     for line in source.split('\n'):
         result += line.rstrip() + '\n'              # only remove right whitespace
     tokens = xtokenize(result)
-    prev = 4
+    prev = -1
     for tok in tokens:
         if tok[0] == 61:
             if prev == 4:   # newline already exist
@@ -408,9 +408,7 @@ def _zip_packall(fileobjs,precompile=True):
             finals.append((t,t))
         elif isinstance(t,(list,tuple)) and len(t) == 2:
             if isinstance(t[1],str):
-                if os.path.isfile(t[0]):
-                    finals.append(t)
-                elif isinstance(t[0],str) and hasattr(t[0],'read'):
+                if (os.path.isfile(t[0]) or hasattr(t[0],'read')):
                     finals.append((t[0].read(),t[1]))
                 elif isinstance(t[0],str):      # str, source contents
                     finals.append(t)
@@ -541,6 +539,11 @@ def main():
         help='minification by removing docstrings, comments, white spaces, empty lines, and indentions'
     )
     parser.add_argument(
+        '-mf', '--mini-files',
+        action='store_true',
+        help='minification files only, but not create executable'
+    )
+    parser.add_argument(
         '-C', '--precompile',
         dest='precompile',
         action='store_true',
@@ -618,7 +621,7 @@ def main():
         print()
         return
 
-    if args.mini:
+    if args.mini or args.mini_files:
         new = []
         for f in files:
             if f.endswith('.py'):
@@ -628,6 +631,19 @@ def main():
                 new.append((f,f))
         files = new
         print('\nNote: minification is performed')
+    
+    if args.mini_files:
+        dest = '__xpackmini'
+        os.makedirs(dest,exist_ok=True)
+        pures = [t for t in files if not os.path.isfile(t[0])]
+        cwd = os.getcwd()
+        os.chdir(dest)
+        for t in pures:
+            base = os.path.basename(t[1])
+            with open(base,'wt') as f: f.write(t[0])
+        os.chdir(cwd)
+        print(f'Note: check folder for results: {dest}\n')
+        return
 
     bo = True if args.precompile else False
     _zip_packall(files,precompile=bo)

@@ -11,6 +11,7 @@ FEATURES = [
     'version 0.3.0  : add info of number of dirs and files',
     'version 0.4.0  : add more useful options',
     'version 0.5.0  : indicate whether file executable',
+    'version 0.6.0  : add option for hidden files and dirs',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -26,7 +27,7 @@ class Tree:
         sort_by_dir_size=None, sort_by_dir_mtime=None, sort_by_dir_ctime=None, sort_by_dir_name=None,
         reverse_sort_dir=None, reverse_sort_file=None,
         sort_dir_by_dirnum=None, sort_dir_by_filenum=None,
-        show_size=None,
+        show_size=None, not_show_hidden_files=None, not_show_hidden_dirs=None,
         *args,**kws,
     ):
         self.cwd = cwd
@@ -49,6 +50,8 @@ class Tree:
         self.show_all_dirs = show_all_dirs
         self.sort_dir_by_dirnum = sort_dir_by_dirnum
         self.sort_dir_by_filenum = sort_dir_by_filenum
+        self.not_show_hidden_files = not_show_hidden_files
+        self.not_show_hidden_dirs = not_show_hidden_dirs
 
     def run(self,cwd=None):
         if not cwd: cwd = self.cwd
@@ -135,11 +138,11 @@ class Tree:
 
             last = dirs.pop(-1)
             for d in dirs:
-                print(self._dout(tab+beg+Fore.BLUE+d+Style.RESET_ALL, '', fdict[d]['/\\arch'][0]))
+                print(self._dout(tab+beg, d, fdict[d]['/\\arch'][0]))
                 self.xprint(fdict[d],tab=tab+mid+'  ',nested=True)
 
-            print(self._dout(tab+end+Fore.BLUE+last+Style.RESET_ALL, '', arch[0]))
-            self.xprint(fdict[last],tab=tab+'   ',nested=True)      # no `mid`, additional space
+            print(self._dout(tab+end, last, fdict[last]['/\\arch'][0])) # only show size of this folder
+            self.xprint(fdict[last],tab=tab+'   ',nested=True)      # no `mid`, three space
 
             if n:
                 print(tab+'   ... ({:} dirs)'.format(n))
@@ -161,12 +164,12 @@ class Tree:
             return prefix+Fore.GREEN+new+Style.RESET_ALL
         return prefix+new
 
-    def _dout(self,prefix,file,size):
+    def _dout(self,prefix,dir,size):
        if self.show_size:
            size = self.bytes2human(size)
-           sz = '({:}) {:}'.format(size,file)
-           return prefix+sz
-       return prefix+file
+           new = '({:}) {:}'.format(size,dir)
+           return prefix+Fore.BLUE+new+Style.RESET_ALL
+       return prefix+Fore.BLUE+dir+Style.RESET_ALL
 
     def bytes2human(self,size):
         unit = 1024
@@ -206,6 +209,13 @@ class Tree:
         # }
         fdict = {}
         for (dirpath, dirnames, filenames) in os.walk(dir):     # `dirpath`: ./a/b/c/d
+            if self.not_show_hidden_dirs:
+                keys = [k for k in dirnames if k.startswith('.')]
+                for k in keys: dirnames.remove(k)   # in-place option
+            if self.not_show_hidden_files:
+                keys = [k for k in filenames if k.startswith('.')]
+                for k in keys: filenames.remove(k)  # in-place option
+
             g = fdict       # alias
             for k in dirpath.split(os.path.sep):
                 g = g.setdefault(k,{})
@@ -267,9 +277,14 @@ def main():
 
     gf = parser.add_argument_group('options for file')
     gf.add_argument(
+        '-F', '--not-show-hidden-files',
+        action='store_true',
+        help='Not show hidden files, highest priority',
+    )
+    gf.add_argument(
         '-sf', '--show-all-files',
         action='store_true',
-        help='Force to show all files, highest priority',
+        help='Force to show all files, second highest priority',
     )
     gf.add_argument(
         '-nf', '--show-max-n-files',
@@ -305,9 +320,14 @@ def main():
 
     gd = parser.add_argument_group('options for dir')
     gd.add_argument(
+        '-D', '--not-show-hidden-dirs',
+        action='store_true',
+        help='Not show hidden dirs, highest priority',
+    )
+    gd.add_argument(
         '-sd', '--show-all-dirs',
         action='store_true',
-        help='Force to show all dirs, highest priority',
+        help='Force to show all dirs, second highest priority',
     )
     gd.add_argument(
         '-nd', '--show-max-n-dirs',

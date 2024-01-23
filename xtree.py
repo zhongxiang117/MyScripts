@@ -12,6 +12,8 @@ FEATURES = [
     'version 0.4.0  : add more useful options',
     'version 0.5.0  : indicate whether file executable',
     'version 0.6.0  : add option for hidden files and dirs',
+    'version 0.7.0  : options for `--show-only-dirs` & `--summary`',
+    'version 0.8.0  : real time work directory',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -32,8 +34,8 @@ class Tree:
     ):
         self.cwd = cwd
         self.not_include_folder_size = not_include_folder_size
-        self.show_max_n_files = show_max_n_files if show_max_n_files else 3
-        self.show_max_n_dirs = show_max_n_dirs if show_max_n_dirs else 3
+        self.show_max_n_files = show_max_n_files if show_max_n_files is not None else 3
+        self.show_max_n_dirs = show_max_n_dirs if show_max_n_dirs is not None else 3
         self.marks = ['├──', '│', '└──']
         self.sort_by_file_size = sort_by_file_size
         self.sort_by_file_ctime = sort_by_file_ctime
@@ -57,13 +59,10 @@ class Tree:
         if not cwd: cwd = self.cwd
         if not cwd: cwd = '.'
         if not os.path.isdir(cwd): return
-        now = os.getcwd()
-        os.chdir(cwd)
-        fdict = self.get_fdict(not_include_folder_size=self.not_include_folder_size)
+        fdict = self.get_fdict(dir=cwd,not_include_folder_size=self.not_include_folder_size)
         self.accumulate_size(fdict)
-        print('\n'+Fore.BLUE+now+Style.RESET_ALL)
+        print('\n'+Fore.BLUE+cwd+Style.RESET_ALL)
         self.xprint(fdict)
-        os.chdir(now)
 
     def xprint(self,fdict,tab=None,nested=None):
         if not tab: tab = ''
@@ -73,7 +72,7 @@ class Tree:
         arch = fdict.pop('/\\arch')         # be aware, additional key
         dirs = [k for k,v in fdict.items() if isinstance(v,dict)]
         files = [k for k in fdict.keys() if k not in dirs]
-        if files:
+        if files and self.show_max_n_files:
             if self.sort_by_file_name:
                 files = sorted(files, reverse=self.reverse_sort_file)
             elif self.sort_by_file_size:
@@ -117,7 +116,7 @@ class Tree:
                     print(tab+mid+'  ... ({:} files)'.format(n))
 
         n = 0
-        if dirs:
+        if dirs and self.show_max_n_dirs:
             if self.sort_by_dir_name:
                 dirs = sorted(dirs, reverse=self.reverse_sort_dir)
             elif self.sort_by_dir_size:
@@ -207,8 +206,10 @@ class Tree:
         #         }
         #     }
         # }
+        now = os.getcwd()
+        os.chdir(dir)
         fdict = {}
-        for (dirpath, dirnames, filenames) in os.walk(dir):     # `dirpath`: ./a/b/c/d
+        for (dirpath, dirnames, filenames) in os.walk('.'):     # `dirpath`: ./a/b/c/d
             if self.not_show_hidden_dirs:
                 keys = [k for k in dirnames if k.startswith('.')]
                 for k in keys: dirnames.remove(k)   # in-place option
@@ -227,7 +228,8 @@ class Tree:
                 total += p.st_size
             d = os.stat(dirpath)
             g['/\\arch'] = (total,d.st_mtime,d.st_ctime,len(dirnames),len(filenames))
-        fdict = fdict[dir]
+        os.chdir(now)
+        fdict = fdict['.']
         return fdict
 
     def accumulate_size(self,fdict):
@@ -268,6 +270,11 @@ def main():
         '-I', '--not-include-folder-size',
         action='store_true',
         help='an empty folder takes up 4096 Bytes (4KB) space, this option will exclude it'
+    )
+    parser.add_argument(
+        '-S', '--summary',
+        action='store_true',
+        help='terse option, same to `--show-max-n-files=0 --show-max-n-dirs=0`'
     )
     parser.add_argument(
         '--features',
@@ -330,6 +337,11 @@ def main():
         help='Force to show all dirs, second highest priority',
     )
     gd.add_argument(
+        '-od', '--show-only-dirs',
+        action='store_true',
+        help='Show dirs only, terse option, same to `--show-max-n-files=0` useful to know hierarchical'
+    )
+    gd.add_argument(
         '-nd', '--show-max-n-dirs',
         type=int,
         metavar='v',
@@ -358,12 +370,12 @@ def main():
     gd.add_argument(
         '-dd', '--sort-dir-by-dirnum',
         action='store_true',
-        help='Sort by dir creation time',
+        help='Sort dir by the number of dirs it contains',
     )
     gd.add_argument(
         '-df', '--sort-dir-by-filenum',
         action='store_true',
-        help='Sort by dir creation time',
+        help='Sort dir by the number of files it contains',
     )
     gd.add_argument(
         '-rd', '--reverse-sort-dir',
@@ -375,6 +387,10 @@ def main():
     if w.features:
         for i in FEATURES: print(i)
         return
+
+    if w.summary:
+        w.show_max_n_dirs = w.show_all_files = 0
+    if w.show_only_dirs: w.show_max_n_files = 0
 
     T = Tree(**vars(w))
     T.run()

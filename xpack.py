@@ -408,7 +408,7 @@ def _zip_packall(fileobjs,precompile=True):
             finals.append((t,t))
         elif isinstance(t,(list,tuple)) and len(t) == 2:
             if isinstance(t[1],str):
-                if (os.path.isfile(t[0]) or hasattr(t[0],'read')):
+                if (os.path.isfile(t[0]) and hasattr(t[0],'read')):
                     finals.append((t[0].read(),t[1]))
                 elif isinstance(t[0],str):      # str, source contents
                     finals.append(t)

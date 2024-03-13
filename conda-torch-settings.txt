@@ -33,7 +33,7 @@ auto_update_conda: false
   *) install `torch_geometric` by `pip`
   
   a) Get Torch version: 
-    -> python -c "import torch; print(torch.version.cuda)"    # output: 1.11.0.post202
+    -> python -c "import torch; print(torch.__version__)"    # output: 1.11.0.post202
   b) Get Cuda Version:
     -> python -c "import torch; print(torch.version.cuda)"    # output: 10.2
   c) Find url from: https://data.pyg.org/whl/
@@ -53,6 +53,14 @@ auto_update_conda: false
   *) errors may happen in this step, search on it,
   -> case: https://github.com/pytorch/pytorch/issues/74454    # use `pip install torch-sparse==0.6.14`
 
+  add to `~/.local/lib/pythonX.y/site-packages`, then results for `sys.path` will be:
+    $CONDA_PREFIX/lib/python39.zip
+    $CONDA_PREFIX/lib/python3.9
+    $CONDA_PREFIX/lib/python3.9/lib-dynload
+    $HOME/.local/lib/python3.9/site-packages
+    ADDED_PATH      # <- added path, see PEP-370, thus they are in higher priority
+    $CONDA_PREFIX/lib/python3.9/site-packages
+  where `CONDA_PREFIX` is `$HOME/Applications/miniconda3/envs/x`
 
 6) codes for test:
 """

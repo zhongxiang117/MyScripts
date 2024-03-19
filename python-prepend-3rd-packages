@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Note:
+#   change this file to `python3` and put to `/path/to/python/bin/`
+#   make symbolic link for `python` to this file if necessary
+
+
+# sys.path
+#
+# >> builtin modules `sys.modules`
+# >+ script directory `-m`  OR  current directory `-c`
+# >+ PYTHONPATH
+# >> lib/python38.zip
+# >> lib/python3.8
+# >> lib/python3.8/lib-dynload
+# >> .local/lib/python3.8/site-packages
+# >+ .local/lib/python3.8/site-packages/zz.pth
+# >> lib/python3.8/site-packages
+# >+ lib/python3.8/site-packages/zz.pth
+#
+#
+## Head
+# sys.prefix          #/home/xiang/Applications/miniconda3core
+# sys.exec_prefix     #/home/xiang/Applications/miniconda3core
+#
+## Tail
+# lib/site-packages               (Windows)
+# lib/pythonX.Y/site-packages     (Unix and MacOS)
+
+
+
+a=/home/xiang/Applications/miniconda3core/envs/python38/lib/python3.8/site-packages
+b=/home/xiang/Applications/miniconda3core/envs/torch/lib/python3.8/site-packages
+export PYTHONPATH=$PYTHONPATH:$a:$b
+now=$(realpath $0)
+dir=$(dirname $now)
+
+exec $dir/python3.8 "$@"
+
+

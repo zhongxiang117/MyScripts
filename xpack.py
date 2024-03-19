@@ -18,6 +18,7 @@ FEATURES = [
     'version 0.5.1 : avoid duplicate file',
     'version 0.6.0 : add `pyminifier`',
     'version 0.7.0 : add `--mini-files`',
+    'version 0.8.0 : add `--show-source-stdout`',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -362,6 +363,7 @@ def minify(tokens, use_tabs=None):
     remove_docstrings(tokens)
     result = xuntokenize(tokens)
     result = remove_blank_lines_and_spaces2(result)
+    result = result.lstrip('\n')
     result = fix_empty_methods(result)
     result = reduce_operators(result)
     result = dedent(result, use_tabs)
@@ -539,6 +541,11 @@ def main():
         help='minification by removing docstrings, comments, white spaces, empty lines, and indentions'
     )
     parser.add_argument(
+        '-O', '--show-source-stdout',
+        action='store_true',
+        help='show sources to stdout, valid when `--mini` is used'
+    )
+    parser.add_argument(
         '-mf', '--mini-files',
         action='store_true',
         help='minification files only, but not create executable'
@@ -632,6 +639,14 @@ def main():
         files = new
         print('\nNote: minification is performed')
     
+        if args.show_source_stdout:
+            for c,f in files:
+                print('\n\n# ' + f)
+                print(c,end='')
+                print()
+            print()
+            return
+
     if args.mini_files:
         dest = '__xpackmini'
         os.makedirs(dest,exist_ok=True)

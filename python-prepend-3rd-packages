@@ -38,3 +38,11 @@ dir=$(dirname $now)
 exec $dir/python3.8 "$@"
 
 
+# Caution:
+#   Be aware that `/path/to/miniconda/bin/conda` depends on `python` to correctly setup
+#   make it to be SPECIFIC to that version of Python by changing Shebang `#!` line
+#
+# File   : /path/to/miniconda/bin/conda
+# Shebang: #!/path/to/miniconda/bin/pythonX.Y
+
+

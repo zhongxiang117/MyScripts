@@ -67,10 +67,10 @@ auto_update_conda: false
 import torch; torch.zeros(2).cuda(); from torch_geometric.data import Data
 """
 
-7) `nvcc` installed by:
-
-conda install -c nvidia cuda-nvcc
-
+7) envs "utils": (gcc/g++ will be installed by cuda-nvcc, add to $PATH)
+"""
+conda install cuda-toolkit cuda-nvcc boost cmake make
+"""
 
 
 ```
@@ -86,6 +86,4 @@ torch-spline-conv     1.2.2         pypi_0                    pypi
 
 tensorboard           2.14.0        pyhd8ed1ab_0              conda-forge
 ```
-
-
 

@@ -1,0 +1,94 @@
+CMake Documentation:
+    https://cmake.org/documentation/
+    https://cmake.org/cmake/help/v2.8.12/cmake.html         # for specific version
+    https://github.com/ttroy50/cmake-examples               # very helpful
+
+
+
+* For UTF-8, use CMake version >= 3.2
+* CMake versions < 3.0 do not support bracket arguments. "[arguments inside a bracket]"
+* Variable References have the form $ENV{<variable>}, using the ENV operator
+* `cmake` use the full path for build tree
+* the folder has `CMakeCache.txt` file will be treated as the build tree
+* Command names are case-insensitive.
+* Each `(` or `)` is given to the command invocation as a literal Unquoted Argument,
+  like the nested parameters.
+
+
+
+CMakeLists.txt
+<script>.cmake      # cmake -P script.cmake
+<module>.cmake      # CMAKE_MODULE_PATH
+
+
+
+Lists: `set` for simple use, not support `;` char:
+    -> set(srcs a.c b.c c.c)    # sets "srcs" to "a.c;b.c;c.c"
+    -> set(x a "b;c")           # sets "x" to "a;b;c", not "a;b\;c"
+
+
+
+buildsystem:    https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html
+    Binary Target           # from `add_executable` and `add_library`
+    Binary Executable       # from `add_executable`
+
+
+useful envs:
+    `make` VERBOSE=1
+    CMAKE_VERBOSE_MAKEFILE=ON
+    CC  ||  CMAKE_C_COMPILER
+    CXX ||  CMAKE_CXX_COMPILE
+
+
+
+Variables & Commands:
+    PROJECT_NAME                name set by `project`
+        ${PROJECT_NAME}_BINARY_DIR
+        ${PROJECT_NAME}_SOURCE_DIR
+    CMAKE_PROJECT_NAME          the name of first project set by `project()`, toplevel
+    CMAKE_BINARY_DIR            toplevel folder where to run `cmake`
+    PROJECT_SOURCE_DIR          source dir for current project
+    PROJECT_BINARY_DIR          build dir for current project
+    subprj_SOURCE_DIR
+    subprj_BINARY_DIR
+    INCLUDE_DIRECTORIES
+    COMPILE_DEFINITIONS
+        add_definitions()
+        remove_definitions()
+        add_compile_definitions()           # options added from here only working for compiling
+        target_compile_definitions()
+    COMPILE_OPTIONS (higher priority than COMPILE_FLAGS)
+        add_compile_options()
+        target_compile_options()
+    COMPILE_FLAGS
+
+
+
+cmake_minimum_required(VERSION 2.6)
+project (hello)
+        $PROJECT_NAME
+        ${PROJECT_NAME}_BINARY_DIR
+        ${PROJECT_NAME}_SOURCE_DIR
+
+add_subdirectory(subdir)
+
+add_library()
+        BUILD_SHARED_LIBS
+
+add_executable(x main.cpp)
+
+include_directories([AFTER|BEFORE] [SYSTEM] dir1 [dir2 ...])        # for "#include"
+target_include_directories(target)       # `target` has to be created before by `add_executable` or `add_library`
+        INCLUDE_DIRECTORIES
+        set_property()      # set many properties for different scopes
+            # add_executable(a ...)
+            # set_property(
+            #     TARGET a
+            #     APPEND PROPERTY
+            #         INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}"
+            # )  
+
+target_link_libraries(<target> ... <item>... ...)   # `target` has to be created before by `add_executable` or `add_library`
+
+
+

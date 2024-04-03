@@ -19,6 +19,7 @@ FEATURES = [
     'version 0.6.0 : add `pyminifier`',
     'version 0.7.0 : add `--mini-files`',
     'version 0.8.0 : add `--show-source-stdout`',
+    'version 0.9.0 : make "minification" be default',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -473,7 +474,7 @@ def _zip_packall(fileobjs,precompile=True):
         i += 1
     print(f'Note: executable will be saved to: {exe}')
     s = 'Has' if precompile else 'No'
-    print(f' ->  {s} precompile used')
+    print(f'>>>  {s} precompile used')
 
     with open(exe, 'wb') as f:
         f.write(b'#!/usr/bin/env python3\n')
@@ -536,9 +537,10 @@ def main():
         help='source files or folders need to be processed'
     )
     parser.add_argument(
-        '-m', '--mini',
+        '-N', '--not-mini',
         action='store_true',
-        help='minification by removing docstrings, comments, white spaces, empty lines, and indentions'
+        dest='mini',
+        help='do not minification by removing docstrings, comments, white spaces, empty lines, and indentions'
     )
     parser.add_argument(
         '-O', '--show-source-stdout',
@@ -566,7 +568,7 @@ def main():
         '-L', '--list-modules',
         dest='list_modules',
         action='store_true',
-        help='tool, only list python module type variables'
+        help='tool, only list including python modules (higher priority)'
     )
     parser.add_argument(
         '-M', '--list-module-variables',
@@ -581,20 +583,22 @@ def main():
     )
     if len(sys.argv) <= 1:
         parser.print_help()
-        sys.exit(0)
+        return
 
     args = parser.parse_args()
     if args.features:
         for i in FEATURES: print(i)
-        sys.exit(0)
+        return
 
     if args.srcfiles:
         if not os.path.isfile(args.srcfiles[0]):
             print(f'Fatal: the first input is not a file: {args.srcfiles[0]}')
-            sys.exit(0)
+            return
     else:
         print('Fatal: no inputs')
-        sys.exit(0)
+        return
+
+    args.mini = False if args.mini else True    # reverse
 
     files = []
     for i in args.srcfiles:
@@ -613,9 +617,11 @@ def main():
     if args.list_modules:
         print('\nNote: going to include files:')
         for i in files:
-            print(f' ->  {i}')
+            print(f'  ->  {i}')
         if args.mini:
-            print('Note: minification will be performed')
+            print('>>> minification will be performed')
+        if args.precompile:
+            print('>>> precompile will be performed')
         print()
         return
 
@@ -637,15 +643,18 @@ def main():
             else:
                 new.append((f,f))
         files = new
-        print('\nNote: minification is performed')
-    
-        if args.show_source_stdout:
-            for c,f in files:
-                print('\n\n# ' + f)
-                print(c,end='')
-                print()
-            print()
+        print('\n>>> minification used')
+
+    if args.show_source_stdout:
+        if not args.mini:
+            print('Warning: show source to stdout only valid when minification is performed')
             return
+        for c,f in files:
+            print('\n\n# ' + f)
+            print(c,end='')
+            print()
+        print()
+        return
 
     if args.mini_files:
         dest = '__xpackmini'

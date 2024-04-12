@@ -15,29 +15,41 @@ auto_update_conda: false
 #  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/msys2
 """
 
-
-1) Download Miniconda from: https://docs.conda.io/en/latest/miniconda.html#linux-installers
+1) Download Miniconda from:
+  -> https://docs.conda.io/en/latest/miniconda.html#linux-installers
+  -> https://repo.anaconda.com/miniconda/
 2) Activate and check Python version
 3) Install core libraries:
-  -> ipython matplotlib pandas notebook numpy scipy Cython
-  -> openbabel rdkit
-  -> fortls (vscode fortran)
-  -> docutils esbonio sphinx-rtd-theme (vscode reStructedText)
+  => matplotlib pandas numpy scipy Cython notebook
+  => openbabel rdkit
+  => fortls (vscode fortran)
+  => docutils esbonio sphinx-rtd-theme (vscode reStructedText)
 
 4) Link those core libraries to other envs by using file `zz.pth`
 
 5) Create new environment for `PyTorch`
-  -> install link: https://pytorch.org/get-started/locally/
-  -> previous version: https://pytorch.org/get-started/previous-versions/
+  -> https://pytorch.org/get-started/locally/
+  -> https://pytorch.org/get-started/previous-versions/
+
+  => additional libraries: networkx tensorboard cudatoolkit
+  !! Be aware, `cudatoolkit` works as 3rd-party package,
+  !! while, `cuda-toolkit` contains `nvcc` compiler and header libraries,
+  !! check pacakge on: https://anaconda.org/
+
+  CUDA Toolkit Driver:
+  -> https://developer.nvidia.com/cuda-toolkit-archive
+  
+  For cudatoolkit, check version relations with CUDA:
+  -> https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
   
   *) install `torch_geometric` by `pip`
   
   a) Get Torch version: 
-    -> python -c "import torch; print(torch.__version__)"    # output: 1.11.0.post202
-  b) Get Cuda Version:
-    -> python -c "import torch; print(torch.version.cuda)"    # output: 10.2
+    -> python -c "import torch; print(torch.__version__)"   # output: 1.11.0.post202
+  b) Get CUDA Version:
+    -> python -c "import torch; print(torch.version.cuda)"  # output: 10.2
   c) Find url from: https://data.pyg.org/whl/
-    -> Torch and Cuda version info are composed by `torch-1.11.0+cu102`,
+    -> Torch and CUDA version info are composed by `torch-1.11.0+cu102`,
     -> thus, link: https://data.pyg.org/whl/torch-1.11.0+cu102.html
 
   """
@@ -48,10 +60,6 @@ auto_update_conda: false
   Note: torch_geometric>2.3.0 can only be used for PyTorch>1.12, otherwise, use 2.2.0 instead
   link: https://github.com/pyg-team/pytorch_geometric/discussions/7033
   """
-
-  -> additional libraries: networkx tensorboard
-  *) errors may happen in this step, search on it,
-  -> case: https://github.com/pytorch/pytorch/issues/74454    # use `pip install torch-sparse==0.6.14`
 
   add to `~/.local/lib/pythonX.y/site-packages`, then results for `sys.path` will be:
     $CONDA_PREFIX/lib/python39.zip
@@ -86,4 +94,34 @@ torch-spline-conv     1.2.2         pypi_0                    pypi
 
 tensorboard           2.14.0        pyhd8ed1ab_0              conda-forge
 ```
+
+
+"""
+# starting from `22.9.0`, ending by `4.14.0`, "CalVer" (Calendar Version)
+# is used for version number: https://calver.org/
+# in the format: YY.MM.x
+Conda version       Base Python
+
+4.7.12              2.7.17
+4.10.3              3.9.7
+4.10.3              3.7.7
+4.12.0              3.9.12
+4.14.0              3.7.12
+22.9.0              3.7.12
+22.9.0              3.9.13
+22.9.0              3.7.16
+23.1.0              3.7.13
+23.1.0              3.9.12
+23.1.0              3.10.9
+23.3.1              3.10.10
+23.5.2              3.8.17
+23.7.4              3.9.18
+23.11.0             3.8.18
+24.1.2              3.10.13
+
+
+# to avoid time cost on downloading, put the corresponding package under
+# `conda info` --> "package cache"
+"""
+
 

@@ -13,7 +13,7 @@ FEATURES = [
     'version 0.5.0  : indicate whether file executable',
     'version 0.6.0  : add option for hidden files and dirs',
     'version 0.7.0  : options for `--show-only-dirs` & `--summary`',
-    'version 0.8.0  : real time work directory',
+    'version 0.8.0  : add options `--show-all` and `--show-all-all`',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -34,8 +34,8 @@ class Tree:
     ):
         self.cwd = cwd
         self.not_include_folder_size = not_include_folder_size
-        self.show_max_n_files = show_max_n_files if show_max_n_files is not None else 3
-        self.show_max_n_dirs = show_max_n_dirs if show_max_n_dirs is not None else 3
+        self.show_max_n_files = show_max_n_files
+        self.show_max_n_dirs = show_max_n_dirs
         self.marks = ['├──', '│', '└──']
         self.sort_by_file_size = sort_by_file_size
         self.sort_by_file_ctime = sort_by_file_ctime
@@ -72,7 +72,7 @@ class Tree:
         arch = fdict.pop('/\\arch')         # be aware, additional key
         dirs = [k for k,v in fdict.items() if isinstance(v,dict)]
         files = [k for k in fdict.keys() if k not in dirs]
-        if files and self.show_max_n_files:
+        if files and self.show_max_n_files != 0:
             if self.sort_by_file_name:
                 files = sorted(files, reverse=self.reverse_sort_file)
             elif self.sort_by_file_size:
@@ -84,7 +84,7 @@ class Tree:
 
             n = 0
             if not self.show_all_files:
-                if len(files) >= self.show_max_n_files:
+                if self.show_max_n_files and len(files) >= self.show_max_n_files:
                     n = len(files) - self.show_max_n_files
                     files = [files[i] for i in range(self.show_max_n_files)]
 
@@ -116,7 +116,7 @@ class Tree:
                     print(tab+mid+'  ... ({:} files)'.format(n))
 
         n = 0
-        if dirs and self.show_max_n_dirs:
+        if dirs and self.show_max_n_dirs != 0:
             if self.sort_by_dir_name:
                 dirs = sorted(dirs, reverse=self.reverse_sort_dir)
             elif self.sort_by_dir_size:
@@ -131,7 +131,7 @@ class Tree:
                 dirs = sorted(dirs, key=lambda x: fdict[x]['/\\arch'][4], reverse=self.reverse_sort_dir)
 
             if not self.show_all_dirs:
-                if len(dirs) > self.show_max_n_dirs:
+                if self.show_max_n_dirs and len(dirs) > self.show_max_n_dirs:
                     n = len(dirs) - self.show_max_n_dirs
                     dirs = [dirs[i] for i in range(self.show_max_n_dirs)]
 
@@ -267,6 +267,16 @@ def main():
         help='show size'
     )
     parser.add_argument(
+        '-a', '--show-all',
+        action='store_true',
+        help='show all but without hiddens, same to `--show-all-files -F --show-all-dirs -D`'
+    )
+    parser.add_argument(
+        '-aa', '--show-all-all',
+        action='store_true',
+        help='show all things, same to `--show-all-files --show-all-dirs`'
+    )
+    parser.add_argument(
         '-I', '--not-include-folder-size',
         action='store_true',
         help='an empty folder takes up 4096 Bytes (4KB) space, this option will exclude it'
@@ -296,6 +306,7 @@ def main():
     gf.add_argument(
         '-nf', '--show-max-n-files',
         type=int,
+        default=3,
         metavar='v',
         help='Show maxmimum this number of files (default:3)',
     )
@@ -344,6 +355,7 @@ def main():
     gd.add_argument(
         '-nd', '--show-max-n-dirs',
         type=int,
+        default=3,
         metavar='v',
         help='Show maxmimum this number of dirs (default:3)',
     )
@@ -388,8 +400,18 @@ def main():
         for i in FEATURES: print(i)
         return
 
+    if w.show_all or w.show_all_all:
+        w.show_max_n_dirs = None
+        w.show_max_n_files = None
+        if w.show_all:
+            w.not_show_hidden_dirs = True
+            w.not_show_hidden_files = True
+        else:
+            w.not_show_hidden_dirs = False
+            w.not_show_hidden_files = False
+
     if w.summary:
-        w.show_max_n_dirs = w.show_all_files = 0
+        w.show_max_n_dirs = w.show_max_n_files = 0
     if w.show_only_dirs: w.show_max_n_files = 0
 
     T = Tree(**vars(w))

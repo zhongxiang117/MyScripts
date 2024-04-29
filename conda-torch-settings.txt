@@ -77,7 +77,13 @@ import torch; torch.zeros(2).cuda(); from torch_geometric.data import Data
 
 7) envs "utils": (gcc/g++ will be installed by cuda-nvcc, add to $PATH)
 """
-conda install cuda-toolkit cuda-nvcc boost cmake make
+# aware:
+# to install specific complier, e.g. `cuda-nvcc`, check: https://anaconda.org/nvidia/repo
+conda install cuda-toolkit cuda-nvcc -c nvidia
+conda install boost cmake make
+
+# for gcc/g++
+conda install gcc gxx
 """
 
 

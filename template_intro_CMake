@@ -21,10 +21,33 @@ CMakeLists.txt
 <module>.cmake      # CMAKE_MODULE_PATH
 
 
-
 Lists: `set` for simple use, not support `;` char:
     -> set(srcs a.c b.c c.c)    # sets "srcs" to "a.c;b.c;c.c"
     -> set(x a "b;c")           # sets "x" to "a;b;c", not "a;b\;c"
+
+
+## To Run cmake module as script
+#
+## FILE: myfunc.cmake  (any valid name or cmake module)
+#function(myget output)
+#    # use to get the environmental variable
+#    if("X${INPUT}" STREQUAL "X" )
+#        set(INPUT "good")
+#    endif()
+#   set(${output} "modified-${INPUT}" PARENT_SCOPE)
+#endfunction()
+#
+#
+## FILE: script.txt
+#include(${CMAKE_CURRENT_LIST_DIR}/myfunc.cmake)
+#myget(OUT)
+#message("${OUT}")
+#message("")
+#
+#
+## command line
+#cmake -P script.txt                    # "modified-good"
+#cmake -DINPUT=nice -P script.txt       # "modified-nice"
 
 
 

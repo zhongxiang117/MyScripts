@@ -15,6 +15,17 @@ auto_update_conda: false
 #  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/msys2
 """
 
+All settings:
+    https://conda.io/projects/conda/en/latest/user-guide/configuration/settings.html
+
+Useful settings:
+    pkgs_dir
+    envs_dir
+To get their calculated values:
+    conda config --show         # get all
+    conda config --show pkgs_dirs envs_dirs
+
+
 1) Download Miniconda from:
   -> https://docs.conda.io/en/latest/miniconda.html#linux-installers
   -> https://repo.anaconda.com/miniconda/
@@ -85,6 +96,14 @@ conda install boost cmake make
 # for gcc/g++
 conda install gcc gxx
 """
+## caution: new envs
+# ADDR2LINE  AR  AS  NM   RNALIB  BUILD
+# CC  CC_FOR_BUILD  CFLAGS
+# CMAKE_ARGS  CMAKE_PREFIX_PATH
+# CPP  CPPFLAGS  CXX  CXXFILT  CXXFLAGS  CXX_FOR_BUILD
+# GCC  GCC_AR  GCC_NM  GCC_RANLIB  GXX
+# LD  LDFLAGS  LD_GOLD
+# NVCC_PREPEND_FLAGS
 
 
 ```

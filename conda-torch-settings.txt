@@ -90,13 +90,31 @@ import torch; torch.zeros(2).cuda(); from torch_geometric.data import Data
 """
 # aware:
 # to install specific complier, e.g. `cuda-nvcc`, check: https://anaconda.org/nvidia/repo
+# major version between `nvcc` and `gcc` should be compatible with each other
 conda install cuda-toolkit cuda-nvcc -c nvidia
+# specify the version, important!
+conda install cuda-toolkit=12.4 cuda-nvcc=12.4    cuda-crt=12.4 \
+    cuda-compiler=12.4 cuda-cudart=12.4 cuda-cudart-static=12.4 -c nvidia
+# CUDA_TOOLKIT_INCLUDE: useful args in `cmake` to find non-standard installed GPUs
+# CUDA_BIN_PATH / CUDA_TOOLKIT_ROOT_DIR : same as above
+# NVCC_PREPEND_FLAGS:   useful to add `NVCC_FLAGS` when `nvcc` compiling 
+
 conda install boost cmake make
+# if any errors encounter in `cmake`, debug: `cmake --debug-out ARGS`
+
+
 
 # for gcc/g++
 conda install gcc gxx
+
+# for gfortran (compiler only)
+conda install gfortran_impl_linux-64
+
+# for mpi
+conda install mpich
 """
 ## caution: new envs
+## be extremely care on `NVCC_` variables
 # ADDR2LINE  AR  AS  NM   RNALIB  BUILD
 # CC  CC_FOR_BUILD  CFLAGS
 # CMAKE_ARGS  CMAKE_PREFIX_PATH
@@ -104,6 +122,10 @@ conda install gcc gxx
 # GCC  GCC_AR  GCC_NM  GCC_RANLIB  GXX
 # LD  LDFLAGS  LD_GOLD
 # NVCC_PREPEND_FLAGS
+
+# general case, say, undefined `memcpy@GLIBC_2.14`
+# check: strings /path/to/libc.so | grep GLIBC
+# update: `conda install sysroot_linux-64=2.17`
 
 
 ```

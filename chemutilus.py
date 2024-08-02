@@ -244,6 +244,30 @@ class Kit:
         return theta
 
 
+def pca(atom_xyz,atom_mass=None):
+    atom_xyz = np.array(atom_xyz)
+    if atom_mass:
+        mass_weighted = atom_xyz * np.array(atom_mass)[:,np.newaxis]
+    else:
+        atom_mass = np.ones(len(atom_xyz))
+        mass_weighted = atom_xyz
+    com = np.sum(mass_weighted,axis=0) / np.sum(atom_mass)
+    tensor = np.zeros((3,3))
+    for i,j in np.ndindex(3,3):
+        delta = int(i == j)
+        elem = np.zeros(len(atom_xyz))
+        for idx in range(len(atom_xyz)):
+            vec = atom_xyz[idx] - com
+            r2d = np.sum((atom_xyz[idx]-com)**2) * delta
+            elem[idx] = atom_mass[idx] * (r2d - vec[i]*vec[j])
+        tensor[i][j] = np.sum(elem)
+    moments, vectors = np.linalg.eigh(tensor)
+    moments = moments.tolist()
+    vectors = vectors.tolist()
+    axes = []
+    for axis in range(3):
+        axes.append([x[axis] for x in vectors])
+    return moments, axes
 
 
 

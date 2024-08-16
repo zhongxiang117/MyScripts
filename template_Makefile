@@ -1,15 +1,19 @@
 # XZ Make Template
 # credits to tutorial: https://makefiletutorial.com/
 
+# to debug
+#make --debug --print-data-base
 
-# `make` is constructed/separated by blocks
-# this will be the first block, until to next `target`
-targets: prerequisites  prereq2
-	echo "targets"
+# `make` is constructed/separated by rules
+# this will be the first rule, the default goal, until to next `target`
+# or, set by `.DEFAULT_GOAL`
+target: prerequisite  prereq2
+	echo "recipe"
 	echo ">$(one)<, var one will be found if it is set"
+# "TAB" is the default prefix, otherwise set by `.RECIPEPREFIX`
 
-prerequisites:
-	echo "this will be run before 'targets': prerequisites"
+prerequisite:
+	echo "this will be run before 'target': prerequisite"
 prereq2::
 	echo "double colon rule: prerequisites -- first"
 prereq2::
@@ -22,6 +26,7 @@ prereq2::
 #.INTERMEDIATE:
 #.NOTINTERMEDIATE:
 #.PRECIOUS: %.o
+
 
 # Recursive variable. This will print "later" below
 one = one ${later_variable}
@@ -37,6 +42,14 @@ test_var_recursive:
 	echo $(one)
 	echo $(two)
 
+# explanation for different ways to define variable
+#immediate = deferred
+#immediate ?= deferred
+#immediate := immediate
+#immediate ::= immediate
+#immediate :::= immediate-with-escape
+#immediate += deferred or immediate
+#immediate != immediate
 
 
 # only sets variables if they have not yet been set
@@ -55,9 +68,16 @@ test_var_whether_set:
 
 # space in after `hello` will be kept until to comments
 with_spaces = hello     # with_spaces has many spaces after "hello"
-after = $(with_spaces)there
+after = $(with_spaces)there # "hello     there "
 
-# however, `space1` will no space, `space2` will have one space
+multiline = line1      \   
+	line2
+mutliresult = $(multiline)  # "line1 line2  "
+# any whitespaces preceding or after `\` will be condensed to one-whitespace
+
+
+
+# however, `space1` will have no space, `space2` will have one space
 nullstring =   
 space1 = $(nullstring)
 space2 = $(nullstring) # a space inserted

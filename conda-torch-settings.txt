@@ -33,6 +33,8 @@ To get their calculated values:
 3) Install core libraries:
   => matplotlib pandas numpy scipy Cython notebook
   => openbabel rdkit
+  => mdtraj pymbar biopython
+  => seaborn
   => fortls (vscode fortran)
   => docutils esbonio sphinx-rtd-theme (vscode reStructedText)
 

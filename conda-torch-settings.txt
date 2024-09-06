@@ -34,7 +34,7 @@ To get their calculated values:
   => matplotlib pandas numpy scipy Cython notebook
   => openbabel rdkit
   => mdtraj pymbar biopython
-  => seaborn
+  => seaborn lxml
   => fortls (vscode fortran)
   => docutils esbonio sphinx-rtd-theme (vscode reStructedText)
 

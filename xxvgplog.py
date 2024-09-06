@@ -12,6 +12,8 @@ FEATURES = [
     'version 0.2.0  : powerful for continuously parse',
     'version 0.3.0  : support plumed data',
     'version 0.4.0  : make more versatile and calculate min/max/avg',
+    'version 0.5.0  : deal with when `xaxis` is used',
+    'version 0.6.0  : fix potential issue for plumed file of multiple FIELDS',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -35,8 +37,11 @@ def read_gmx_xvg(file):
                 if l[:2] == '#!':   # plumed data
                     g = l[2:].split()
                     if g[0] == 'FIELDS':
+                        if bo_plumed:
+                            print('Warning: multiple FIELDS')
+                            print('  -> ',l)
                         bo_plumed = True
-                        legends.extend(g[1:])
+                        legends = g[1:]
             elif l.startswith('@'):
                 l = l[1:].strip()
                 if l.startswith('legend'): continue
@@ -197,6 +202,7 @@ plot_gmx_xvg {VERSION}
                             print(outputs[i])
                     t = input('Input group to be parsed (use number & space): ')
                     g = t.replace(',',' ').split()
+                    bo = None
                     for v in g:
                         if v.startswith('xaxis='):
                             try:
@@ -204,10 +210,16 @@ plot_gmx_xvg {VERSION}
                                 if k < 0 or k > n: raise ValueError
                             except:
                                 print('  -> wrong setting xaxis, no space is allowed')
+                                bo = False
                             else:
                                 xaxis = k
                                 xdata = full[keys[str(k)][0]]
-                                continue
+                                bo = True
+                                break
+                    if bo is True:
+                        g.remove(v)
+                    elif bo is False:
+                        continue
                 if g:
                     try:
                         g = list(map(int,g))

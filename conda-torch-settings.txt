@@ -49,12 +49,27 @@ To get their calculated values:
   !! while, `cuda-toolkit` contains `nvcc` compiler and header libraries,
   !! check pacakge on: https://anaconda.org/
 
+  Use hardware brand get Compute Capability (Geforce GT 730 -> cc3.0)
+  -> https://en.wikipedia.org/wiki/CUDA
+  => then get CUDA SDK version (Software Development Kit, same as CUDAToolkit)
+
+  For cudatoolkit, check version relations with CUDA, as well as the Driver version
+  -> https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
+
   CUDA Toolkit Driver:
   -> https://developer.nvidia.com/cuda-toolkit-archive
-  
-  For cudatoolkit, check version relations with CUDA:
-  -> https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
-  
+
+  >> conda install pytorch=1.11=cuda102py310hdf4a2db_2  # pkg=<version>=<build>
+  Be aware, PyTorch version has the restriction on python version, check:
+  -> https://conda.anaconda.org/pytorch/linux-64
+  -> https://conda.anaconda.org/pytorch/noarch
+  -> https://conda.anaconda.org/nvidia/linux-64
+  -> https://conda.anaconda.org/nvidia/noarch
+  -> https://conda.anaconda.org/conda-forge/linux-64
+  -> https://conda.anaconda.org/conda-forge/noarch
+  Search for build:
+  >> conda search pytorch
+
   *) install `torch_geometric` by `pip`
   
   a) Get Torch version: 

@@ -7,6 +7,7 @@ import itertools
 
 FEATURES = [
     'version 1.0.0  : Nov 8th, 2024',
+    'version 1.1.0  : conclude keep to sell',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -20,22 +21,19 @@ class Hedge:
         inlist: [(value,percent,sell_percent), (percent,sell_percent), (percent) ...]
                 -> e.g. [(80, 0.80, 0.76), (15,0.15), 0.3, ...]
         delta_percent: float
-        keep_num: int
         sell_num: int
     """
     def __init__(
             self,inlist=None,
-            delta_percent=None,percent_num=None,keep_num=None,sell_num=None,
+            delta_percent=None,percent_num=None,sell_num=None,
             *args,**kws
     ):
         self.inlist = inlist if inlist else []
         self.delta_percent = delta_percent if delta_percent else 0.05
         self.percent_num = percent_num if percent_num else 3
-        self.keep_num = keep_num if keep_num else 50
         self.sell_num = sell_num if sell_num else 50
         # after run
         self.sell = []
-        self.keep = []
         self.keys = {}
 
         self.full_keys = []
@@ -146,11 +144,8 @@ class Hedge:
         self.suggest(buys,base)
         expect = expect / len(buys) - base
 
-        keep = sorted(self.keep,key=lambda x: x[1],reverse=True)    # format: [(p,e), ...]
-        self.keep = keep[:self.keep_num]
         sell = sorted(self.sell,key=lambda x: x[2],reverse=True)    # format: [(p,idx,e), ...]
         self.sell = sell[:self.sell_num]
-        self.print_suggestion_on_keep()
         self.print_suggestion_on_sell()
 
         cost = sum([t[0] for t in self.inlist])
@@ -177,7 +172,6 @@ class Hedge:
             'percent'       : percent,
             'percent_sell'  : [(t[2] if len(t)==3 else t[1]) for t in self.inlist],
             'percent_worn'  : [(t[1]-t[2] if len(t)==3 else 0.0) for t in self.inlist],
-            'keep_num'      : self.keep_num,
             'sell_num'      : self.sell_num,
             'percent_num'   : self.percent_num,
             'delta_percent' : self.delta_percent,
@@ -189,7 +183,7 @@ class Hedge:
 
     def print_suggestion_on_sell(self):
         cost = sum([t[0] for t in self.inlist])
-        print('\n    Sell when color, red increase, blue decrease')
+        print('    Sell when color, red increase, blue decrease')
         print(' sell:',end='')
         use = '  {:6.2f}'*len(self.inlist)
         print(use.format(*[t[0] for t in self.inlist]),end='')
@@ -219,30 +213,8 @@ class Hedge:
         use = '  {:6.3f}'*len(vl)
         print(use.format(*vl))
 
-    def print_suggestion_on_keep(self):
-        cost = sum([t[0] for t in self.inlist])
-        print('\n     Increse in red, blue decrease')
-        print('price:',end='')
-        use = '  {:6.2f}'*len(self.inlist)
-        print(use.format(*[t[0] for t in self.inlist]),end='')
-        print('  >>    net      R')
-        use = '  {:6.3f}'*len(self.inlist)
-        for g in self.keep:
-            line = '    >>'
-            for i,t in enumerate(g[0]):
-                if t-self.inlist[i][1]>0.001:
-                    line += '\x1b[31m' + '  {:6.3f}' + '\033[0m'
-                elif abs(t-self.inlist[i][1])<0.001:
-                    line += '  {:6.3f}'
-                else:
-                    line += '\x1b[34m' + '  {:6.3f}' + '\033[0m'
-            print(line.format(*g[0]),end='')
-            print('  -> {:8.3f}  {:.3f}'.format(g[1],g[1]/cost))
-        self._print_begin()
-
     def suggest(self, buys, base):
         cnt = 0
-        self.keep = []
         self.sell = []
         delta = [i*self.delta_percent for i in range(1,self.percent_num+1)]
         for k in range(1,len(buys)+1):
@@ -261,14 +233,6 @@ class Hedge:
                         cnt += 1
                         if cnt > 1000000: return
 
-                        e = sum([buys[i][1]*t for i,t in enumerate(new)])
-                        if e-base <= 1: continue
-
-                        self.keep.append((new,e-base))
-                        if len(self.keep) > 10*self.keep_num:
-                            p = sorted(self.keep,key=lambda x: x[1],reverse=True)
-                            self.keep = p[:3*self.keep_num]
-
                         # for sell
                         for v in range(1,len(new)+1):
                             for s in itertools.combinations(range(len(new)),v):
@@ -279,7 +243,6 @@ class Hedge:
                                 if len(self.sell) > 10*self.sell_num:
                                     p = sorted(self.sell,key=lambda x: x[2],reverse=True)
                                     self.sell = p[:3*self.sell_num]
-
 
 
 h = Hedge()

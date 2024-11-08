@@ -2,7 +2,15 @@
 
 import os
 import argparse
-from colorama import Fore, Style
+try:
+    from colorama import Fore, Style
+except ImportError:
+    import collections
+    Fore = collections.namedtuple('Fore',[])
+    setattr(Fore, 'BLUE', '\033[34m')
+    setattr(Fore, 'GREEN', '\033[32m')
+    Style = collections.namedtuple('Style',[])
+    setattr(Style, 'RESET_ALL', '\033[0m')
 
 
 FEATURES = [
@@ -14,6 +22,7 @@ FEATURES = [
     'version 0.6.0  : add option for hidden files and dirs',
     'version 0.7.0  : options for `--show-only-dirs` & `--summary`',
     'version 0.8.0  : add options `--show-all` and `--show-all-all`',
+    'version 0.9.0  : workaround for `colorama` module',
 ]
 
 VERSION = FEATURES[-1].split()[1]

@@ -4,8 +4,8 @@ channels:
   - defaults
 
 # When True,
-# conda updates itself any time a user updates or installs a package 
-# in the root environment. When False, conda updates itself only 
+# conda updates itself any time a user updates or installs a package
+# in the root environment. When False, conda updates itself only
 # if the user manually issues a conda update command. The default is True.
 auto_update_conda: false
 
@@ -26,13 +26,14 @@ To get their calculated values:
     conda config --show pkgs_dirs envs_dirs
 
 
-1) Download Miniconda from:
+1) Download Miniconda from [recommend Python 3.10 bundle]:
   -> https://docs.conda.io/en/latest/miniconda.html#linux-installers
   -> https://repo.anaconda.com/miniconda/
 2) Activate and check Python version
 3) Install core libraries:
   => matplotlib pandas numpy scipy Cython notebook
   => openbabel rdkit
+  #=> additional libraries: networkx tensorboard
   => mdtraj pymbar biopython
   => seaborn lxml
   => fortls (vscode fortran)
@@ -44,22 +45,38 @@ To get their calculated values:
   -> https://pytorch.org/get-started/locally/
   -> https://pytorch.org/get-started/previous-versions/
 
-  => additional libraries: networkx tensorboard cudatoolkit
   !! Be aware, `cudatoolkit` works as 3rd-party package,
   !! while, `cuda-toolkit` contains `nvcc` compiler and header libraries,
   !! check pacakge on: https://anaconda.org/
 
-  Use hardware brand get Compute Capability (Geforce GT 730 -> cc3.0)
+  Use hardware brand get Compute Capability (Geforce GT 730 -> cc3.5 -> nvidia-driver-470 [last version])
   -> https://en.wikipedia.org/wiki/CUDA
   => then get CUDA SDK version (Software Development Kit, same as CUDAToolkit)
 
   For cudatoolkit, check version relations with CUDA, as well as the Driver version
   -> https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
 
-  CUDA Toolkit Driver:
-  -> https://developer.nvidia.com/cuda-toolkit-archive
 
-  >> conda install pytorch=1.11=cuda102py310hdf4a2db_2  # pkg=<version>=<build>
+  Alternative way:
+    >>> sudo apt install nvidia-driver-470          # check every library, make sure all is "470"
+    >>> conda install pytorch  cudatoolkit=11.4     # make sure `pytorch` is CUDA version
+    
+    # refer "a)" and "b)" to get correct installed versions
+    >>> pip install torch_scatter torch_sparse torch_cluster torch_spline_conv \
+            -f https://data.pyg.org/whl/torch-1.13.1+cu112.html
+    # be aware, `/bin/gcc` and `/bin/g++` version, the last compiler version for CUDA 11.4 is `9`
+    #>>> sudo apt install gcc-9 g++-9
+    #>>> sudo rm -f /bin/gcc /bin/g++ 
+    #>>> sudo ln -s /bin/gcc-9 /bin/gcc  &&  sudo ln -s /bin/g++-9 /bin/g++
+    # moniter the background processes, will take way too long time
+    # when done, restore system compiler version
+    >>> pip install torch_geometric
+
+
+  CUDA Toolkit Driver, to use CUDA version find correct driver (download "RUN" file:
+  -> https://developer.nvidia.com/cuda-toolkit-archive  # Or
+
+  >> conda install pytorch=1.11=cuda102py310hdf4a2db_202    # pkg=<version>=<build>
   Be aware, PyTorch version has the restriction on python version, check:
   -> https://conda.anaconda.org/pytorch/linux-64
   -> https://conda.anaconda.org/pytorch/noarch
@@ -72,10 +89,10 @@ To get their calculated values:
 
   *) install `torch_geometric` by `pip`
   
-  a) Get Torch version: 
+  a) Get Torch version:
     -> python -c "import torch; print(torch.__version__)"   # output: 1.11.0.post202
   b) Get CUDA Version:
-    -> python -c "import torch; print(torch.version.cuda)"  # output: 10.2
+    -> python -c "import torch; print(torch.version.cuda); torch.zeros(2).cuda()"  # output: 10.2
   c) Find url from: https://data.pyg.org/whl/
     -> Torch and CUDA version info are composed by `torch-1.11.0+cu102`,
     -> thus, link: https://data.pyg.org/whl/torch-1.11.0+cu102.html
@@ -83,6 +100,7 @@ To get their calculated values:
   """
   pip install torch_scatter torch_sparse torch_cluster torch_spline_conv \
       -f https://data.pyg.org/whl/torch-1.11.0+cu102.html
+  pip install torch_geometric
 
   DO CHECK after!
   Note: torch_geometric>2.3.0 can only be used for PyTorch>1.12, otherwise, use 2.2.0 instead
@@ -99,9 +117,7 @@ To get their calculated values:
   where `CONDA_PREFIX` is `$HOME/Applications/miniconda3/envs/x`
 
 6) codes for test:
-"""
-import torch; torch.zeros(2).cuda(); from torch_geometric.data import Data
-"""
+python3 -c 'import torch; torch.zeros(2).cuda(); from torch_geometric.data import Data'
 
 7) envs "utils": (gcc/g++ will be installed by cuda-nvcc, add to $PATH)
 """
@@ -114,7 +130,7 @@ conda install cuda-toolkit=12.4 cuda-nvcc=12.4    cuda-crt=12.4 \
     cuda-compiler=12.4 cuda-cudart=12.4 cuda-cudart-static=12.4 -c nvidia
 # CUDA_TOOLKIT_INCLUDE: useful args in `cmake` to find non-standard installed GPUs
 # CUDA_BIN_PATH / CUDA_TOOLKIT_ROOT_DIR : same as above
-# NVCC_PREPEND_FLAGS:   useful to add `NVCC_FLAGS` when `nvcc` compiling 
+# NVCC_PREPEND_FLAGS:   useful to add `NVCC_FLAGS` when `nvcc` compiling
 
 conda install boost cmake make
 # if any errors encounter in `cmake`, debug: `cmake --debug-out ARGS`
@@ -160,6 +176,22 @@ tensorboard           2.14.0        pyhd8ed1ab_0              conda-forge
 ```
 
 
+```
+pytorch               1.13.1       cuda112py310he33e0d6_200   conda-forge
+torchvision           0.14.1       cuda112py310hb1d1f80_1     conda-forge
+cudatoolkit           11.4.3       h39f8164_13                conda-forge
+
+torch-cluster         1.6.3        pypi_0                     pypi
+torch-geometric       2.6.1        pypi_0                     pypi
+torch-scatter         2.1.2        pypi_0                     pypi
+torch-sparse          0.6.18       pypi_0                     pypi
+torch-spline-conv     1.2.2        pypi_0                     pypi
+
+tensorboard           2.18.0       pyhd8ed1ab_0               conda-forge
+```
+
+
+
 """
 # starting from `22.9.0`, ending by `4.14.0`, "CalVer" (Calendar Version)
 # is used for version number: https://calver.org/
@@ -182,6 +214,7 @@ Conda version       Base Python
 23.7.4              3.9.18
 23.11.0             3.8.18
 24.1.2              3.10.13
+24.9.2              3.10.15
 
 
 # to avoid time cost on downloading, put the corresponding package under

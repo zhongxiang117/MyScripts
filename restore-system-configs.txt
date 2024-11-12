@@ -1,0 +1,59 @@
+To mount `/home` partition:
+
+    1) format as `ext4`
+    2) `lsblk` or `blkid` to get UUID
+    3) file: "/etc/fstab"
+        # <file_system>                        <mount_point>    <type>  <options>      <dump>  <pass>
+        UUID=725df7b9-8c5f-4bfd-bf7e-8e21a62b3341   /           ext4    errors=remount-ro   0   1
+        UUID=6646-60D7                              /boot/efi   vfat    umask=0077          0   1
+        UUID=36de459c-469a-4d74-9b45-21ff77fbfa72   none        swap    sw                  0   0
+        # for home, xz
+        UUID=8364cc01-87e5-40d7-95e3-a5f4305bf43f   /home       ext4    defaults,noatime    0   2
+    4) Care!! remove any possible interferences before sync, like '.lib', '.config', '.local'
+        `rsync -av /home /path/to/mount/folder`
+
+
+
+To remove "Music", "Template", "Picture", "VIDEOS" folder:
+
+    for file: "/home/xiang/.config/user-dirs.dirs"
+    
+        XDG_DESKTOP_DIR="$HOME/Desktop"
+        XDG_DOWNLOAD_DIR="$HOME/Downloads"
+        XDG_TEMPLATES_DIR="$HOME/Templates"
+        XDG_PUBLICSHARE_DIR="$HOME"
+        XDG_DOCUMENTS_DIR="$HOME/Documents"
+        XDG_MUSIC_DIR="$HOME"
+        XDG_PICTURES_DIR="$HOME"
+        XDG_VIDEOS_DIR="$HOME"
+
+
+
+To add `.desktop`, path: "/home/xiang/.local/share/applications":
+
+    [Desktop Entry]
+    Version=1.0
+    Name=myapp
+    Type=Application
+    Exec=/home/xiang/Applications/app/myapp
+    Icon=/home/xiang/Applications/app/myicon
+    Terminal=false
+
+
+
+To add context menu script:
+    link: https://help.ubuntu.com/community/NautilusScriptsHowto
+    path: "/home/xiang/.local/share/nautilus/scripts"
+
+
+
+Be aware, "xxx 'mimeapps.list': Operation not permitted"
+    
+    >>> lsattr mimiapps.list                    # fuck WPS
+    ----i---------e------- mimeapps.list        # means immutable
+    >>> chattr -i mimeapps.list
+    --------------e------- mimeapps.list
+
+
+
+

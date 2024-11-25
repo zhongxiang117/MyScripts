@@ -20,6 +20,7 @@ FEATURES = [
     'version 0.7.0 : add `--mini-files`',
     'version 0.8.0 : add `--show-source-stdout`',
     'version 0.9.0 : make "minification" be default',
+    'version 0.10.0   : fully remove blank lines',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -97,16 +98,12 @@ def remove_blank_lines_and_spaces2(source):
         bo = True
     result = ''
     for line in source.split('\n'):
-        result += line.rstrip() + '\n'              # only remove right whitespace
+        result += line.rstrip() + '\n'          # only remove right whitespace
     tokens = xtokenize(result)
-    prev = -1
     for tok in tokens:
-        if tok[0] == 61:
-            if prev == 4:   # newline already exist
-                tok[1] = ''
-                tok[3] = (tok[2][0], tok[2][1])      # tuple
-        else:
-            prev = tok[0]
+        if tok[0] == tokenize.NL:
+            tok[1] = ''
+            tok[3] = (tok[2][0], tok[2][1])
     if bo:
         return tokens
     return xuntokenize(tokens)

@@ -97,11 +97,3 @@ cdef class Temp:
 
 
 
-
-
-
-
-
-
-
-

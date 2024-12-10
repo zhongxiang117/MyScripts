@@ -1,0 +1,39 @@
+Genesis version 2.1.2
+
+May need:
+    sudo apt install mpich
+
+    sudo apt install libopenmpi-dev
+        checking for MPI type... gfortran: error: unrecognized command-line option '--showme:version';
+            did you mean '--no-m2-version'?
+            no MPI
+
+    sudo apt install libblas-dev liblapack-dev
+
+
+./configure
+make
+
+cd src/lib
+make
+
+cd src/atdyn
+make atdyn
+
+
+
+atdyn/Makefile:
+    > FCFLAGS =  -g -ffast-math -march=native -ffree-line-length-none -fopenmp
+    > FCFLAGS_FFTE_KERNEL_FPP__PGI__SP =  -g -ffast-math -march=native -ffree-line-length-none -fopenmp
+    > FCFLAGS_FPP__PGI_NOOPT =  -g -ffast-math -march=native -ffree-line-length-none -fopenmp
+    > LDFLAGS =  -fopenmp  -llapack -lblas          # original, for OpenMM, no harm for debug
+    #>LDFLAGS =            -llapack -lblas          # turn off OpenMM
+
+lib/Makefile:
+    > CFLAGS =  -g -ffast-math -march=native -fopenmp
+    > FCFLAGS =  -g -ffast-math -march=native -ffree-line-length-none -fopenmp
+    > FCFLAGS_FFTE_KERNEL_FPP__PGI__SP =  -g -ffast-math -march=native -ffree-line-length-none -fopenmp
+
+
+
+

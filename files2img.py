@@ -3,6 +3,10 @@
 
 from rdkit import Chem
 from rdkit.Chem import Draw
+from rdkit import RDLogger
+# link: https://github.com/rdkit/rdkit-orig/blob/master/rdkit/RDLogger.py#L15C9-L15C67
+#_level = ['rdApp.debug','rdApp.info','rdApp.warning','rdApp.error']
+RDLogger.DisableLog('rdApp.*')
 
 import os
 import sys
@@ -11,6 +15,7 @@ import argparse
 
 FEATURES = [
     'version 0.1.0    : file to images',
+    'version 0.2.0    : coroutine on read',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -18,37 +23,31 @@ __version__ = VERSION
 
 
 class ReadQueue:
-    def __init__(self, files, insmiles=None):
+    def __init__(self, files=None, insmiles=None):
         self.files = files if files else []
         self.insmiles = insmiles if insmiles else []
+        self._it = None
 
     def read_from_file(self,file=None):
+        """coroutine, read from supported file, return iterable or None(failed)"""
         if not (file and os.path.isfile(file)): return
+        name = os.path.splitext(os.path.basename(file))[0]
         if file.endswith('.pdb'):
-            try:
-                mol = Chem.MolFromPDBFile(file, removeHs=False)
-            except:
-                pass
-            else:
+            mol = Chem.MolFromPDBFile(file, removeHs=True)
+            if mol:
                 if not (mol.HasProp('_Name') and len(mol.GetProp('_Name').strip())):
-                    mol.SetProp('_Name',os.path.basename(file))
+                    mol.SetProp('_Name',name)
                 yield mol
         elif file.endswith('.sdf'):
-            sup = Chem.SDMolSupplier(file, removeHs=False)
+            sup = Chem.SDMolSupplier(file, removeHs=True)
             n = 0
-            name = os.path.splitext(os.path.basename(file))[0]
-            while True:
+            for mol in sup:
                 n += 1
-                try:
-                    mol = next(sup)
-                except StopIteration:
-                    break
-                else:
-                    if not (mol.HasProp('_Name') and len(mol.GetProp('_Name').strip())):
-                        mol.SetProp('_Name',name+'_n'+str(n))
-                    yield mol
+                if not mol: continue
+                if not (mol.HasProp('_Name') and len(mol.GetProp('_Name').strip())):
+                    mol.SetProp('_Name',name+'_n'+str(n))
+                yield mol
         elif file.endswith('.mol2'):
-            name = os.path.splitext(os.path.basename(file))[0]
             with open(file, 'rt') as f:
                 doc = f.readlines()
             ndxlist = [i for (i,p) in enumerate(doc) if '@<TRIPOS>MOLECULE' in p]
@@ -59,47 +58,59 @@ class ReadQueue:
                 mol = Chem.MolFromMol2Block(block)
                 if not mol: continue
                 if not (mol.HasProp('_Name') and len(mol.GetProp('_Name').strip())):
-                    mol.SetProp('_Name', name+'_'+str(i+1))
+                    mol.SetProp('_Name',name+'_'+str(i+1))
                 yield mol
         elif file.endswith('.smi') or file.endswith('.smiles'):
-            name = os.path.splitext(os.path.basename(file))[0]
             with open(file,'rt') as f:
                 for i,line in enumerate(f):
                     l = line.replace(',',' ').split()       # consider `csv`
                     if not l: continue
-                    try:
-                        mol = Chem.MolFromSmiles(l[0])
-                        if not mol:
-                            raise ValueError
-                    except:
-                        pass
+                    mol = Chem.MolFromSmiles(l[0])
+                    if not mol: continue
+                    if len(l) >= 2:
+                        mol.SetProp('_Name',l[1])
                     else:
-                        if len(l) >= 2:
-                            mol.SetProp('_Name',l[1])
-                        else:
-                            mol.SetProp('_Name',name+'_'+str(i+1))
-                        yield mol
+                        mol.SetProp('_Name',name+'_'+str(i+1))
+                    yield mol
 
     def read_from_insmiles(self,insmiles=None):
+        """coroutine, read from SMILES, return iterable or None(failed)"""
         if not isinstance(insmiles,(tuple,list)): return
         for i,s in enumerate(insmiles,start=1):
-            try:
-                mol = Chem.MolFromSmiles(s)
-            except:
-                pass
-            else:
-                mol.SetProp('_Name',str(i))
-                yield mol
+            mol = Chem.MolFromSmiles(s)
+            if not mol: continue
+            mol.SetProp('_Name',str(i))
+            yield mol
 
-    def __iter__(self):
-        for f in self.files:
+    def read(self,files=None,insmiles=None):
+        """coroutine, read mol, return iterable or None(failed)"""
+        if files is None: files = self.files
+        if insmiles is None: insmiles = self.insmiles
+        for f in files:
             print(f'Note: read from file: {f}')
             it = self.read_from_file(f)
             if not it: continue
             for m in it: yield m
-        it = self.read_from_insmiles(self.insmiles)
+        it = self.read_from_insmiles(insmiles)
         if it:
             for m in it: yield m
+
+    def read_mols(self,number):
+        """continuously read number of mols"""
+        p = self.__iter__()
+        mols = []
+        for i in range(number):
+            try:
+                m = next(p)
+            except StopIteration:
+                break
+            else:
+                mols.append(m)
+        return mols
+
+    def __iter__(self):
+        if not self._it: self._it = self.read()
+        for m in self._it: yield m
 
     __next__ = __iter__
 
@@ -159,9 +170,9 @@ def mols2img_files(mols,filebasename=None,label=True,title=True,size=None):
     if not filebasename: filebasename = 'img'
     for i,t,m in zip(range(1,len(mols)+1),legends,mols):
         if t:
-            file = filebasename + '_' + str(i) + '_' + t + '.jpg'
+            file = filebasename + '_n' + str(i) + '_' + t + '.jpg'
         else:
-            file = filebasename + '_' + str(i) + '.jpg'
+            file = filebasename + '_n' + str(i) + '.jpg'
         print('> writing to file: ',file)
         Draw.MolToImageFile(m,file,size=size)
 
@@ -169,7 +180,7 @@ def mols2img_files(mols,filebasename=None,label=True,title=True,size=None):
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        usage=f"""files2img {VERSION}""",
+        usage=f"""files2img v{VERSION}""",
         allow_abbrev=False,
     )
     parser.add_argument(
@@ -181,13 +192,13 @@ def main():
         '-f','--files',
         metavar='f',
         nargs='+',
-        help='input files, [sdf, mol2, pdb, smiles/smi(first column will be SMILES)]'
+        help='input files, [sdf, mol2, pdb, smiles/smi(first column is used as SMILES)]'
     )
     parser.add_argument(
         '-is','--insmiles',
         metavar='smi',
         nargs='+',
-        help='input SMILES'
+        help='command line input SMILES'
     )
     parser.add_argument(
         '-T', '--not-show-title',
@@ -244,12 +255,22 @@ def main():
         for i in FEATURES: print(i)
         return
 
-    rq = ReadQueue(files=w.files, insmiles=w.insmiles)
-    nrq = rq.__next__()     # fire up
     if w.M:
-        mols = [m for m in nrq]
-        mols2img_files(mols,filebasename=w.filename,label=w.label,title=w.title,size=w.size)
+        for f in w.files:
+            if not os.path.isfile(f): continue
+            name = os.path.splitext(os.path.basename(f))[0]
+            rq = ReadQueue(files=[f])
+            while True:
+                mols = rq.read_mols(10)
+                if not mols: break
+                mols2img_files(mols,filebasename=name,label=w.label,title=w.title,size=w.size)
+        rq = ReadQueue(insmiles=w.insmiles)
+        while True:
+            mols = rq.read_mols(10)
+            if not mols: break
+            mols2img_files(mols,filebasename='SMI',label=w.label,title=w.title,size=w.size)
     else:
+        rq = ReadQueue(files=w.files, insmiles=w.insmiles)
         if w.filename:
             base,ext = os.path.splitext(w.filename)
         else:
@@ -263,28 +284,16 @@ def main():
         else:
             r,c = 6,6
         n = 0
-        first = True
         while True:
-            mols = []
-            bo = False
-            for i in range(r*c):
-                try:
-                    m = nrq.__next__()
-                except StopIteration:
-                    bo = True
-                    break
-                else:
-                    mols.append(m)
-            if bo and first:
+            mols = rq.read_mols(r*c)
+            if not mols: break
+            if n == 0 and len(mols) < r*c:
                 name = base + ext
             else:
                 n += 1
                 name = base + '_' + str(n) + ext
-            first = False
-            if mols:
-                if len(mols) < c: c = len(mols)
-                mols2img_gridfile(mols,file=name,col=c,label=w.label,title=w.title,size=w.size)
-            if bo: break
+            if len(mols) < c: c = len(mols)
+            mols2img_gridfile(mols,file=name,col=c,label=w.label,title=w.title,size=w.size)
 
 
 if __name__ == '__main__':

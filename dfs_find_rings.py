@@ -27,7 +27,7 @@ def is_same_ring(al,bl):
     return True
 
 
-def find_all_rings_dfs(nbors):
+def find_all_rings_dfs(mbors):
     """
     format:
         1--2----3
@@ -37,6 +37,14 @@ def find_all_rings_dfs(nbors):
         
         `0`: as the starting engine
     """
+    # clean up
+    nbors = {}
+    for k,v in mbors.items():
+        g = list(set(v))
+        if k in g: g.remove(k)
+        nbors[k] = g
+    if 0 not in nbors: nbors[0] = []
+
     visited = [False for i in range(len(nbors))]
     dfs = []
     rings = []

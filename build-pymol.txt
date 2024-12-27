@@ -27,4 +27,8 @@ Exec=/home/xiang/Applications/master-pymol-open-source/build/bin/pymol
 Icon=/home/xiang/Applications/master-pymol-open-source/data/pymol/icons/icon2.svg
 Terminal=false
 
+Path:
+    "XDG_DATA_DIRS"
+    ~/.local/share/applications
+
 

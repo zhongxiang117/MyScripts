@@ -39,7 +39,7 @@ def xx_get_property_pythonic(sel='sele'):
     # check `PYMOL_PATH/../../chempy/__init__.py`
     # e.g.:  a.resn, a.resi, a.coord, a.ss
     """
-    if sel not in cmd.get_names(): sel = 'all'
+    if sel not in cmd.get_names('all'): sel = 'all'
     model = cmd.get_model(sel)
     atoms = model.atom
     for a in atoms:
@@ -57,7 +57,7 @@ def xx_get_property(sel='sele'):
     numeric_type, model*, state*, index*, ID, rank, color, ss,
     cartoon, flags
     """
-    if sel not in cmd.get_names(): sel = 'all'
+    if sel not in cmd.get_names('all'): sel = 'all'
     stored.p = []
     cmd.iterate(sel, 'stored.p.append((name, resn, resi, alt, chain, numeric_type, ss))')
     for i in stored.p:
@@ -70,7 +70,7 @@ def xx_pdb2ss(sel='sele'):
     """
     convert sel to second_structure, default sel=sele
     """
-    if sel not in cmd.get_names(): sel = 'all'
+    if sel not in cmd.get_names('all'): sel = 'all'
     stored.ss = ''
     cmd.iterate('%s and (n. CA)' % sel, 'stored.ss += ("%1s" % ss)')
     ss = stored.ss.replace(' ','.')
@@ -83,7 +83,7 @@ def xx_get_helix(sel='sele',save2file=1):
     """
     get distance between O[i] and N[i+3|i+4|i+5], save to file or print to stdout
     """
-    if sel not in cmd.get_names(): sel = 'all'
+    if sel not in cmd.get_names('all'): sel = 'all'
     model = cmd.get_model(sel)
     reslist = model.get_residues()
     atomlist = model.atom
@@ -137,7 +137,7 @@ def xx_get_phi_psi_omega(sel='sele',save2file=1):
     """
     get phi/psi/omega, save to file or print to stdout
     """
-    if sel not in cmd.get_names(): sel = 'all'
+    if sel not in cmd.get_names('all'): sel = 'all'
     stored.dict = {}
     cmd.iterate(sel , "stored.dict[int(resi)] = [model, segi, chain, resn, int(resi)]")
     keys = list(stored.dict.keys())
@@ -201,7 +201,8 @@ def xx_get_info_for_pair_fit(sel='sele'):
     outputs can be directly used for `pair_fit`
     """
     stored.p = []
-    cmd.iterate(sel, 'stored.p.append("/%s/%s/%s/%s`%s/%s"%(model,segi,chain,resn,resi,name))')
+    #cmd.iterate(sel, 'stored.p.append("/%s/%s/%s/%s`%s/%s"%(model,segi,chain,resn,resi,name))')
+    cmd.iterate(sel, 'stored.p.append("%s and ID %s"%(model,ID))')
     if len(stored.p) % 2 != 0:
         print('Warning: number of pair should be even')
         return

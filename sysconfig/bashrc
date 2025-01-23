@@ -1,0 +1,309 @@
+# xz
+# ~/.bashrc: executed by bash(1) for non-login shells
+#
+# check:
+#   * login reads order:
+#     ->  /etc/profile  >  ~/.bash_profile  >  ~/.bash_login  >  ~/.profile
+#   * non-login reads order:
+#     ->  /etc/bash.bashrc  >  ~/.bashrc
+
+
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+# hide "Starred" folder
+# https://askubuntu.com/questions/1194319/can-the-starred-folder-in-the-left-pane-of-files-nautilus-be-removed
+export G_RESOURCE_OVERLAYS="/org/gnome/nautilus/ui=$HOME/.config/nautilus/ui"
+
+if [ -d "$HOME/bin" ]; then PATH="$HOME/bin:$PATH"; fi
+if [ -d "$HOME/.local/bin" ]; then PATH="$HOME/.local/bin:$PATH"; fi
+
+# make less more friendly for non-text input files, see lesspipe(1)
+[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias ls='ls --color=auto'
+    alias dir='dir --color=auto'
+    #alias vdir='vdir --color=auto'
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
+
+# enable programmable completion features (you don't need to enable
+# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
+# sources /etc/bash.bashrc).
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+
+
+# Add an "alert" alias for long running commands.  Use like so:
+#   sleep 10; alert
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
+
+
+
+# set variable identifying the chroot you work in (used in the prompt below)
+if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+# titlebar
+PROMPT_COMMAND='echo -en "\033]0; level-$SHLVL: ${PWD} \a"'
+
+# PS1
+PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\[\033[00m\]:\[\033[01;34m\]\W\[\033[00m\]\$ '
+
+
+
+
+# history settings
+#
+# format
+#
+#export HISTTIMEFORMAT="%h %d %H:%M:%S "
+#
+# example
+#   114  Jun 08 16:31:10 top
+#   116  Jun 08 16:31:22 history
+#
+# number of command history & number of maxmium lines
+export HISTSIZE=50000
+export HISTFILESIZE=50000
+#
+# controller
+#   ignorespace     don't save lines which begin with a <space> character
+#   ignoredups      don't save lines matching the previous history entry
+#   ignoreboth      use both 'ignorespace' and 'ignoredups'
+#   erasedups       eliminate duplicates across the whole history
+export HISTCONTROL=ignorespace
+#
+# ignore commands
+#
+# ignore ls & ps
+#export HISTIGNORE="ls:ps"
+#
+# don't save commands start with s
+#export HISTIGNORE="s*"
+#
+# change history file
+#export HISTFILE=~/.my_file
+#
+# append hisotry rather than overwrite it
+#shopt -s histappend
+#
+# don't put duplicate lines or lines starting with space in the history.
+# See bash(1) for more options
+#HISTCONTROL=ignoreboth
+
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+#shopt -s checkwinsize
+
+# If set, the pattern "**" used in a pathname expansion context will
+# match all files and zero or more directories and subdirectories.
+#shopt -s globstar
+
+
+# colored GCC warnings and errors
+#export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
+
+
+alias rm='rm -i'
+alias mv='mv -i'
+alias cp='cp -i'
+
+
+
+# pyenv
+#export PYENV_ROOT="$HOME/Applications/pyenv" 
+#export PATH=$PATH:$PYENV_ROOT/bin
+#eval "$(pyenv init -)"
+#export PATH=/home/xiang/Applications/pyenv/versions/3.8.3/bin:$PATH
+
+
+# Gaussian_09
+g09root="/home/xiang/Applications"
+    GAUSS_SCRDIR="/home/xiang/Temp"
+    GAUSS_ARCHDIR="/home/xiang/Temp"
+    export g09root GAUSS_SCRDIR GAUSS_ARCHDIR
+    . $g09root/g09/bsd/g09.profile
+    export PATH=$g09root/g09:$PATH
+
+#g16root="/home/xiang/Applications"
+#    GAUSS_SCRDIR="/home/xiang/Temp"
+#    GAUSS_ARCHDIR="/home/xiang/Temp"
+#    export g16root GAUSS_SCRDIR GAUSS_ARCHDIR
+#    . $g16root/g16/bsd/g16.profile
+
+
+# Schrodinger
+#export SCHRODINGER='/home/xiang/Applications/Schrodinger_201502'
+#export SCHRODINGER='/home/xiang/Applications/Schrodinger_202102'
+export SCHRODINGER='/home/xiang/Applications/Schrodinger_202402'
+export SCHRODINGER_CANVAS_MAX_MEM=3GB
+
+
+# BOSS
+export BOSSdir="/home/xiang/Applications/BOSS/boss49-G09-IL"
+
+# packmol
+export PATH=/home/xiang/Applications/packmol-18.169/bin:$PATH
+
+# Matlab
+#export PATH=/usr/local/MATLAB/R2016b/bin:$PATH
+
+# define default editor
+export EDITOR=gedit
+
+# travis
+export PATH=/home/xiang/Applications/travis-src-190101/exe:$PATH
+
+# pymol
+export PATH=/home/xiang/Applications/master-pymol-open-source/build/bin:$PATH
+
+# python server
+alias python-server="python -m http.server 8000"
+
+# rubygems
+if which ruby >/dev/null && which gem >/dev/null; then
+    export GEM_HOME="$(ruby -r rubygems -e 'puts Gem.user_dir')"
+    PATH="$GEM_HOME/bin:$PATH"
+fi
+
+# gromacs
+source /home/xiang/Applications/gromacs-2021.5/build/gromacs/bin/GMXRC.bash
+
+unset no_proxy NO_PROXY HTTPS_PROXY https_proxy all_proxy ALL_PROXY
+
+# gunzip
+alias gunzip='gunzip -k'
+
+# amber
+#source /home/xiang/Applications/amber20/amber.sh
+
+# PMV
+export MGL_ROOT=/home/xiang/Applications/mgltools_x86_64Linux2_1.5.7
+alias ipython-mgl=$MGL_ROOT/bin/ipython
+alias python27-mgl=$MGL_ROOT/bin/python-mystarter-origin
+
+# intel
+export PATH=/home/xiang/Applications/intel/oneapi/compiler/2022.1.0/linux/bin/intel64:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/xiang/Applications/intel/oneapi/compiler/2022.1.0/linux/compiler/lib/intel64_lin
+
+
+# google-chrome-proxy
+#alias mygoogle='google-chrome-stable --user-data-dir=/home/xiang/.config/google-chrome-proxy --proxy-server="socks5://127.0.0.1:32823"'
+
+#google-chrome-stable --user-data-dir=/home/xiang/.config/google-chrome-proxy --proxy-server="socks5://127.0.0.1:32823"
+
+# make get rules
+alias make-list-rules="make -qp | awk -F':' '/^[a-zA-Z0-9][^\$#\/\t=]*:([^=]|$)/ {split(\$1,A,/ /);for(i in A)print A[i]}'"
+
+# for python virtual environment
+#python3 -m venv ~/.venv           # initialization
+alias python-venv-activate="source ~/.venv/bin/activate"
+
+# Grace
+export GRACE_HOME=/home/xiang/Applications/grace-5.1.25/built-grace
+export PATH=$GRACE_HOME/bin:$PATH
+
+# understand
+export STIHOME=/home/xiang/Applications/scitools
+
+# remove icon on Dash
+#xprop | grep CLASS      (click on GUI, to get: "name","name")
+#wmctrl -x -r bitcoin-qt.Bitcoin-Qt -b add,skip_taskbar    (Remove)
+#wmctrl -x -r bitcoin-qt.Bitcoin-Qt -b remove,skip_taskba  (Add back)
+
+# show GPU detail
+alias xlspci='lspci | grep " VGA " | cut -d" " -f 1 | xargs -i lspci -v -s {}'
+
+# VMD
+export PATH=/home/xiang/Applications/vmd-1.9.3/build/bin:$PATH
+
+
+get_old_paths(){
+    local g t p c b
+    g=$(history | grep 'cd' | awk '{$1="";$2=""}1' | awk '(substr($1,1,1)=="/" || substr($1,1,1)=="~")' | tac)
+    t=$(dirs -v | wc -l)
+    ((t=10-t))
+    for p in $g; do
+        # directly test `[[ -d $p ]]` does not work
+        [[ ${p:0:1} == '~' ]] && p="${HOME}${p:1}"
+        if [[ ! -d $p ]]; then continue; fi
+        b=true
+        for c in $(dirs -p); do
+            [[ ${c:0:1} == '~' ]] && c="${HOME}${c:1}"
+            if [[ "$c" == "$p" ]]; then b=false; break; fi
+        done
+        if $b; then pushd -n "$p" > /dev/null; ((t--)); fi
+        if (($t<1)); then break; fi
+    done
+}
+# Petar Marinov, http:/geocities.com/h2428, this is public domain
+cd_func ()
+{
+  local x2 the_new_dir adir index
+  local -i cnt
+  if [[ $1 ==  "--" ]]; then dirs -v; return 0; fi
+  the_new_dir=$1
+  [[ -z $1 ]] && the_new_dir=$HOME
+  if [[ ${the_new_dir:0:1} == '-' ]]; then
+    # Extract dir N from dirs
+    index=${the_new_dir:1}
+    [[ -z $index ]] && index=1
+    adir=$(dirs +$index)
+    [[ -z $adir ]] && return 1
+    the_new_dir=$adir
+  fi
+  # '~' has to be substituted by ${HOME}
+  [[ ${the_new_dir:0:1} == '~' ]] && the_new_dir="${HOME}${the_new_dir:1}"
+  # Now change to the new dir and add to the top of the stack
+  pushd "${the_new_dir}" > /dev/null
+  [[ $? -ne 0 ]] && return 1
+  the_new_dir=$(pwd)
+  # Trim down everything beyond 11th entry
+  popd -n +11 2>/dev/null 1>/dev/null
+  # Remove any other occurence of this dir, skipping the top of the stack
+  for ((cnt=1; cnt <= 10; cnt++)); do
+    x2=$(dirs +${cnt} 2>/dev/null)
+    [[ $? -ne 0 ]] && return 0
+    [[ ${x2:0:1} == '~' ]] && x2="${HOME}${x2:1}"
+    if [[ "${x2}" == "${the_new_dir}" ]]; then
+      popd -n +$cnt 2>/dev/null 1>/dev/null
+    fi
+  done
+  return 0
+}
+alias cd=cd_func
+
+
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/home/xiang/Applications/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/home/xiang/Applications/miniconda3/etc/profile.d/conda.sh" ]; then
+        . "/home/xiang/Applications/miniconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="/home/xiang/Applications/miniconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+PROMPT_COMMAND='echo -en "\033]0; level-$SHLVL: conda-$CONDA_SHLVL ${PWD} \a"'
+# <<< conda initialize <<<
+export PATH=$PATH:/home/xiang/Applications/miniconda3/envs/py31015/bin/zzselbin
+
+

@@ -1,0 +1,58 @@
+# for VMD auto-completion, do `sudo apt install rlwarp`
+# for Tcl auto-completion, do `sudo apt install tcl-tclreadline`
+
+set auto_path [linsert $auto_path 0 /usr/lib/tcltk/x86_64-linux-gnu] 
+
+if {$tcl_interactive} {
+    package require tclreadline
+
+    namespace eval tclreadline {
+        proc prompt1 {} {
+            set basename [lindex [split [pwd] /] end]
+            return "tcl \033\[01;34m$basename/\033\[0m > "
+        }
+    }
+
+    ::tclreadline::Loop
+}
+
+
+proc xls {args} {
+
+    if {[llength $args] == 0} { set args "." }
+
+    set expandedArgs {}
+    foreach arg $args {
+        lappend expandedArgs [file normalize $arg]
+    }
+    set output [exec ls --color {*}$expandedArgs]
+    set files [split $output "\n"]
+
+    set width [lindex [split [exec stty size] " "] 1]
+    set maxLength 0
+    foreach file $files {
+        if {[string length $file] > $maxLength} {
+            set maxLength [string length $file]
+        }
+    }
+    set columns [expr {$width / ($maxLength)}]
+
+    # Print in column-wise format
+    set n [llength $files]
+    set rows [expr {($n + $columns - 1) / $columns}]
+    for {set r 0} {$r < $rows} {incr r} {
+        set line ""
+        for {set c 0} {$c < $columns} {incr c} {
+            set index [expr {$r + $c * $rows}]
+            if {$index < $n} {
+                set item [lindex $files $index]
+                append line "$item\t"
+            }
+        }
+        puts [string trimright $line "\t"]
+    }
+}
+
+
+
+

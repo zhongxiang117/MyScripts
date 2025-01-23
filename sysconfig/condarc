@@ -1,0 +1,17 @@
+channels:
+  - conda-forge
+  - defaults
+
+# When True,
+# conda updates itself any time a user updates or installs a package 
+# in the root environment. When False, conda updates itself only 
+# if the user manually issues a conda update command. The default is True.
+auto_update_conda: false
+
+#default_channels:
+#  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+#  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+#  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/msys2
+
+
+

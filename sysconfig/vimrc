@@ -1,0 +1,106 @@
+" Date: November 17, 2020
+"
+"
+
+set nocompatible            " Disable vi compatibility
+
+filetype on                 " filetype must be 'on' before setting it 'off'
+filetype off                " force reloading *after* pathogen loaded
+
+filetype plugin indent on   " Enable indentation rules that are file-type specific.
+
+set fencs=utf-8,GB18030,ucs-bom,default,latin1
+
+set autoindent          " New lines inherit the indentation of previous lines.
+set expandtab           " Convert tabs to spaces.
+set shiftround          " When shifting lines, round the indentation to the nearest multiple of “shiftwidth.”
+set shiftwidth=4        " When shifting, indent using four spaces.
+set smarttab            " Insert “tabstop” number of spaces when the “tab” key is pressed.
+set tabstop=4           " Indent using four spaces.
+set softtabstop=4       " number of spaces in tab when editing
+
+
+
+set gdefault        " RegExp globally
+set hlsearch        " Enable search highlighting.
+set ignorecase      " Ignore case when searching.
+set incsearch       " Incremental search that shows partial matches.
+set smartcase       " Automatically switch search to case-sensitive
+                    "   when search query contains an uppercase letter.
+
+
+
+"set complete-=i    " Limit the files searched for auto-completes.
+set lazyredraw     " Don’t update screen during macro and script execution.
+
+
+
+"set display+=lastline   " Always try to show a paragraph’s last line.
+"set encoding=utf-8      " Use an encoding that supports unicode.
+"set linebreak           " Avoid wrapping a line in the middle of a word.
+"set scrolloff=1         " The number of screen lines to keep above and below the cursor.
+"set sidescrolloff=5     " The number of screen columns to keep to the left and right of the cursor.
+"syntax enable           " Enable syntax highlighting.
+"set wrap                " Enable line wrapping.
+set showmatch                   " Show matching brackets.
+
+
+
+set cursorline          " Highlight the line currently under cursor.
+set number              " Show line numbers on the sidebar.
+"set relativenumber      " Show line number on the current line and relative numbers on all other lines.
+
+
+
+set laststatus=2        " Always display the status bar.
+set ruler               " Always show cursor position.
+set wildmenu            " Display command line’s tab complete options as a menu.
+set tabpagemax=50       " Maximum number of tab pages that can be opened from the command line.
+set noerrorbells        " Disable beep on errors.
+"set visualbell          " Flash the screen instead of beeping on errors.
+set mouse=a             " Enable mouse for scrolling and resizing.
+set title               " Set the window’s title, reflecting the file currently being edited.
+"set background=dark      " Use colors that suit a dark background.
+
+
+
+"set foldmethod=indent   " Fold based on indention levels.
+"set foldnestmax=3       " Only fold up to three nested levels.
+"set nofoldenable        " Disable folding by default.
+
+
+
+set history=1000        " Increase history
+set undolevels=1000     " undo
+set autoread            " reload files if changed externally
+
+
+
+"set spell               " Enable spellchecking.
+"set spelllang=en_us
+
+set backupdir=~/.vim/   " Directory to store backup files.
+set dir=~/.vim/         " Directory to store swap files.
+"set noswapfile                  " Disable swap files.
+set nobackup
+
+
+
+
+" Miscellaneous Options
+
+"set autoread                    " Automatically re-read files if unmodified inside Vim.
+"set backspace=indent,eol,start  " Allow backspacing over indention, line breaks and insertion start.
+set formatoptions+=j            " Delete comment characters when joining lines.
+"set hidden                      " Hide files in the background instead of closing them.
+"set nomodeline                  " Ignore file’s mode lines; use vimrc configurations instead.
+"set nrformats-=octal            " Interpret octal as decimal when incrementing numbers.
+"set shell                       " The shell used to execute commands.
+"set confirm                     " Display a confirmation dialog when closing an unsaved file.
+"set wildignore+=.pyc,.swp       " Ignore files matching these patterns when opening files based on a glob pattern.
+
+
+" Turn off visual mode when using mouse
+set mouse-=a
+
+

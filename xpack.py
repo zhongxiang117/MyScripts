@@ -21,6 +21,7 @@ FEATURES = [
     'version 0.8.0 : add `--show-source-stdout`',
     'version 0.9.0 : make "minification" be default',
     'version 0.10.0   : fully remove blank lines',
+    'version 0.11.0   : fix errors in continuous OP',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -180,24 +181,27 @@ def fix_empty_methods(tokens):
 
 
 def reduce_operators(source):
-    """
-    Remove spaces between operators in *source* and returns the result.
-    Example::
-
+    """Remove spaces between operators in *source* and returns the result.
+    
+    source:
         def foo(foo, bar, blah):
             test = "This is a %s" % foo
 
     Will become::
-
         def foo(foo,bar,blah):
             test="This is a %s"%foo
 
-    Trailing commas cannot be removed, cause we do not know how is used:
-    e.g.;
+    Trailing commas cannot be removed, cause we do not know how it is used:
         for i in (1,): print(i)         # this makes int 1 iterable
+
+    Be aware of continuous OP:
+        if True:
+            [1]
+            [2]     # this is the continuous OP
+        a = [1,2,3]
     """
     io_obj = io.StringIO(source)
-    prev_tok = [-99,]            # xzdebug, for the beginning of file `__doc__`
+    prev_tok = [-99, '', (0,0), (0,0), '']  # xzdebug, for the beginning of file `__doc__`
     out = ""
     last_lineno = -1
     last_col = 0
@@ -231,9 +235,9 @@ def reduce_operators(source):
                     else:
                         new_string += token_string.strip(string_type)
         else:
-            # if token_string in ('}', ')', ']'):           # xzdebug
-            #     if prev_tok[1] == ',':
-            #         out = out.rstrip(',')
+            if token_string in ('}', ']'):      # xzdebug, Trailing comma
+                if prev_tok[1] == ',':
+                    out = out.rstrip(',')
             if joining_strings:
                 # NOTE: Using triple quotes so that this logic works with
                 # mixed strings using both single quotes and double quotes.
@@ -243,6 +247,8 @@ def reduce_operators(source):
                 if prev_tok[0] == tokenize.NEWLINE:
                     # Ensure it gets indented properly
                     out += (" " * (start_col - last_col))
+            if prev_tok[0] == tokenize.NEWLINE and start_col > 0:   # for continuous OP
+                out += " " * start_col
         if not joining_strings:
             out += token_string
         last_col = end_col

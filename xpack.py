@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
 
+"""
+Token (PYTHONHOME/lib/pythonX.Y/token.py):
+    0   : ENDMARKER
+    1   : NAME
+    2   : NUMBER
+    3   : STRING
+    4   : NEWLINE
+    5   : INDENT
+    6   : DEDENT
+    54  : OP
+    61  : COMMENT
+    62  : NL        (pure new line)
+
+Logical:
+    define: VALUE = NAME | NUMBER | STRING
+
+    code:   a     =   b      if  c     else  d
+    parse:  NAME  OP  VALUE  OP  NAME  OP    VALUE
+
+    OP      :  =  +=  *=  [  {  (  or any operator like "," or "." separator
+    NAME    :  None/True/False  or any valid name
+"""
+
 import os
 import sys
 import io
@@ -22,6 +45,7 @@ FEATURES = [
     'version 0.9.0 : make "minification" be default',
     'version 0.10.0   : fully remove blank lines',
     'version 0.11.0   : fix errors in continuous OP',
+    'version 0.12.0   : rewrite `reduce_operators`',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -181,78 +205,90 @@ def fix_empty_methods(tokens):
 
 
 def reduce_operators(source):
-    """Remove spaces between operators in *source* and returns the result.
+    """Remove spaces between operators in *source* and returns the result
     
-    source:
-        def foo(foo, bar, blah):
-            test = "This is a %s" % foo
+    Example codes:
 
-    Will become::
-        def foo(foo,bar,blah):
-            test="This is a %s"%foo
+    def    foo(a,   b, c):
+        e = 'test: %s'     % a
 
-    Trailing commas cannot be removed, cause we do not know how it is used:
-        for i in (1,): print(i)         # this makes int 1 iterable
+    if True:
+        [1]
+        [2]                     # continuous OP
+    a = [1, 2, 3]
 
-    Be aware of continuous OP:
-        if True:
-            [1]
-            [2]     # this is the continuous OP
-        a = [1,2,3]
+    for i in (1,): print(i)     # trailing comma
+    for    i in [2, 3,   ]: print(i)
+
+    v    =    4
+    g = (f"{v} "   "k: 1"   "t=3"  \
+        "b=4"
+    )                           # new line will be kept
+
+    bo = True
+    num = 1 if bo else 0
+
+
+    Results:
+
+    def foo(a,b,c):
+        e= ('test: %s') %a
+
+    if True:
+        [1]
+        [2]# continuous OP
+    a=[1,2,3]
+
+    for i in(1,):print(i)# trailing comma
+    for i in[2,3]:print(i)
+
+    v=4
+    g=( (f"{v} " "k: 1" "t=3" "b=4") 
+    )# new line will be kept
+
+    bo=True
+    num=1 if bo else 0
     """
-    io_obj = io.StringIO(source)
-    prev_tok = [-99, '', (0,0), (0,0), '']  # xzdebug, for the beginning of file `__doc__`
-    out = ""
-    last_lineno = -1
-    last_col = 0
-    nl_types = (tokenize.NL, tokenize.NEWLINE)
-    joining_strings = False
-    new_string = ""
-    for tok in tokenize.generate_tokens(io_obj.readline):
-        token_type = tok[0]
-        token_string = tok[1]
-        start_line, start_col = tok[2]
-        end_line, end_col = tok[3]
-        if start_line > last_lineno:
-            last_col = 0
-        if token_type != tokenize.OP:
-            if start_col > last_col and token_type not in nl_types:
-                if prev_tok[0] != tokenize.OP:
-                    out += (" " * (start_col - last_col))
-            if token_type == tokenize.STRING:
-                if prev_tok[0] == tokenize.STRING:
-                    # Join the strings into one
-                    string_type = token_string[0] # '' or ""
-                    prev_string_type = prev_tok[1][0]
-                    out = out.rstrip(" ") # Remove any spaces we inserted prev
-                    if not joining_strings:
-                        # Remove prev token and start the new combined string
-                        out = out[:(len(out)-len(prev_tok[1]))]
-                        prev_string = prev_tok[1].strip(prev_string_type)
-                        new_string = (
-                            prev_string + token_string.strip(string_type))
-                        joining_strings = True
-                    else:
-                        new_string += token_string.strip(string_type)
+    prev_tok = [-99, '', (0,0), (0,0), '']
+    out = ''
+    newlines = (tokenize.NL, tokenize.NEWLINE)
+    operator = (tokenize.NAME, tokenize.NUMBER, tokenize.STRING)
+    scnt = 0
+    new = ''
+    for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+        beg_row, beg_col = tok[2]
+        end_row, end_col = tok[3]
+        if prev_tok[0] in newlines:
+            if beg_col > 0:             # for continuous OP
+                out += ' ' * beg_col
         else:
-            if token_string in ('}', ']'):      # xzdebug, Trailing comma
+            if tok[0] in operator and prev_tok[0] in operator:
+                if end_col > prev_tok[3][1]:
+                    out += ' '          # reduced happens at here!
+        if tok[0] == tokenize.OP:
+            if tok[1] in ('}', ']'):    # for trailing comma
                 if prev_tok[1] == ',':
-                    out = out.rstrip(',')
-            if joining_strings:
-                # NOTE: Using triple quotes so that this logic works with
-                # mixed strings using both single quotes and double quotes.
-                out += "'''" + new_string + "'''"
-                joining_strings = False
-            if token_string == '@': # Decorators need special handling
-                if prev_tok[0] == tokenize.NEWLINE:
-                    # Ensure it gets indented properly
-                    out += (" " * (start_col - last_col))
-            if prev_tok[0] == tokenize.NEWLINE and start_col > 0:   # for continuous OP
-                out += " " * start_col
-        if not joining_strings:
-            out += token_string
-        last_col = end_col
-        last_lineno = end_line
+                    out = out[:-1]
+            if scnt > 0:        # join string
+                out += ' (' + new + ') '
+                new = ''
+                scnt = 0
+            out += tok[1]
+        elif tok[0] == tokenize.STRING:
+            scnt += 1
+            if prev_tok[0] == tokenize.STRING:
+                new += ' ' + tok[1]
+            else:
+                new += tok[1]
+        else:
+            if scnt > 0:        # join string
+                if scnt > 1:
+                    out += ' (' + new + ') '
+                else:
+                    out += new
+                new = ''
+                scnt = 0
+            out += tok[1]
         prev_tok = tok
     return out
 

@@ -270,7 +270,10 @@ def reduce_operators(source):
                 if prev_tok[1] == ',':
                     out = out[:-1]
             if scnt > 0:        # join string
-                out += ' (' + new + ') '
+                if scnt > 1:
+                    out += ' (' + new + ') '
+                else:
+                    out += new
                 new = ''
                 scnt = 0
             out += tok[1]

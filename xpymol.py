@@ -22,6 +22,8 @@ useful:
     select backbone, (name c+n+o+ca)
 """
 
+from openbabel import pybel
+
 from pymol import cmd
 from pymol import stored
 from pymol import selector
@@ -64,6 +66,7 @@ def xx_get_property(sel='sele'):
         print(i)
 
 cmd.extend('xx_get_property', xx_get_property)
+cmd.auto_arg[0]['xx_get_property'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
 def xx_pdb2ss(sel='sele'):
@@ -77,6 +80,7 @@ def xx_pdb2ss(sel='sele'):
     print(ss)
 
 cmd.extend('xx_pdb2ss', xx_pdb2ss)
+cmd.auto_arg[0]['xx_pdb2ss'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
 def xx_get_helix(sel='sele',save2file=1):
@@ -131,6 +135,7 @@ def xx_get_helix(sel='sele',save2file=1):
             print('{:6}  {:7.3f}  {:7.3f}  {:7.3f}'.format(*g))
 
 cmd.extend('xx_get_helix', xx_get_helix)
+cmd.auto_arg[0]['xx_get_helix'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
 def xx_get_phi_psi_omega(sel='sele',save2file=1):
@@ -193,6 +198,7 @@ def xx_get_phi_psi_omega(sel='sele',save2file=1):
             print('{:6}  {:8.3f}  {:8.3f}  {:8.3f}'.format(*g))
 
 cmd.extend('xx_get_phi_psi_omega', xx_get_phi_psi_omega)
+cmd.auto_arg[0]['xx_get_phi_psi_omega'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
 def xx_get_info_for_pair_fit(sel='sele'):
@@ -212,18 +218,73 @@ def xx_get_info_for_pair_fit(sel='sele'):
     print(', '.join(f))
 
 cmd.extend('xx_get_info_for_pair_fit', xx_get_info_for_pair_fit)
+cmd.auto_arg[0]['xx_get_info_for_pair_fit'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
+def xx_get_molinfo(sel=None,solvent_radius=None):
+    """
+    Formula, Number Atoms, M.W., Exact Mass, Solvent Accessible Surface, Solvent Excluded Surface
 
+    `solvent_radius` can be directly input, or `set solvent_radius, 1.4`
+    similar command to calculate surface `get_area`
+    """
+    def _getinfo(sel):
+        stored.p = []
+        cmd.iterate(sel, 'stored.p.append(elem)')
+        d = {k:[0,0,0] for k in set(stored.p)}
+        for c in stored.p:
+            d[c][0] += 1
+            i = pybel.ob.GetAtomicNum(c)
+            d[c][1] += pybel.ob.GetMass(i)
+            d[c][2] += pybel.ob.GetExactMass(i)
+        info = ''
+        mw = mass = 0.0
+        n = 0
+        for k in ['C','H','O','N','S','P','Cl']:
+            if k in d:
+                e = d.pop(k)
+                n += e[0]
+                info += '{:}{:}'.format(k,e[0])
+                mw += e[1]
+                mass += e[2]
+        for k,e in d.items():
+            n += e[0]
+            info += '{:}{:}'.format(k,e[0])
+            mw += e[1]
+            mass += e[2]
+        old = cmd.get('dot_solvent')
+        cmd.set('dot_solvent','on')
+        sas = cmd.get_area(sel)
+        cmd.set('dot_solvent','off')
+        ses = cmd.get_area(sel)
+        cmd.set('dot_solvent',old)
+        v = '{:}: {:},  NumAtoms: {:},  MW: {:.2f},  ExactMass: {:.3f},  SAS: {:.3f},  SES: {:.3f}'.format(
+            sel, info, n, mw, mass, sas, ses
+        )
+        return v
 
+    old = cmd.get('solvent_radius')
+    if solvent_radius is None:
+        solvent_radius = cmd.get('solvent_radius')
+    else:
+        solvent_radius = solvent_radius
+    cmd.set('solvent_radius',solvent_radius)
+    if sel is None:
+        if 'sele' in cmd.get_names('all'):
+            sel = 'sele'
+        else:
+            sel = cmd.get_names()       # not "all"
+    info = []
+    if isinstance(sel,list):
+        for s in sel:
+            info.append(_getinfo(s))
+    else:
+        info.append(_getinfo(sel))
+    for i in info: print(i)
+    cmd.set('solvent_radius',old)
 
-
-
-
-
-
-
-
+cmd.extend('xx_get_molinfo', xx_get_molinfo)
+cmd.auto_arg[0]['xx_get_molinfo'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
 

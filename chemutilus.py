@@ -110,6 +110,7 @@ def read_pdb(file):
                 models[model].append([
                     seq,atomname,altLoc,resname,chainid,resnum,x,y,z,occ,tempfactor,element,charge,idx
                 ])
+    models.pop(-1)
     return models
 
 

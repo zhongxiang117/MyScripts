@@ -38,6 +38,7 @@ To get their calculated values:
   => seaborn lxml
   => fortls (vscode fortran)
   => docutils esbonio sphinx-rtd-theme (vscode reStructedText)
+  => python-graphviz (travis plot command `dot`)
 
 4) Link those core libraries to other envs by using file `zz.pth`
 
@@ -72,6 +73,10 @@ To get their calculated values:
     # when done, restore system compiler version
     >>> pip install torch_geometric
 
+
+  !! aware: comptible GCC should be installed for NVCC
+  !! check: https://developer.nvidia.com/cuda-toolkit-archive           # online documentation
+  @@ https://docs.nvidia.com/cuda/archive/X.Y.i/#installation-guides    # for detail
 
   CUDA Toolkit Driver, to use CUDA version find correct driver (download "RUN" file:
   -> https://developer.nvidia.com/cuda-toolkit-archive  # Or

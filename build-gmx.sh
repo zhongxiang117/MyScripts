@@ -9,6 +9,7 @@ unset NVCC_PREPEND_FLAGS
 unset DESTDIR  CPATH
 
 # note: version CUDA 12 -> GCC 12
+# GMX 2025 require: CUDA >=12, thus, for CUDA=11, GMX 2024.5 is the last version to use
 
 
 echo $NVCC_PREPEND_FLAGS

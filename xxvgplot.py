@@ -16,6 +16,7 @@ FEATURES = [
     'version 0.6.0  : fix potential issue for plumed file of multiple FIELDS',
     'version 0.7.0  : refactor, support GMX log file',
     'version 0.8.0  : add `begin`',
+    'version 0.8.1  : fix `yaxis` multiple entries problem',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -125,7 +126,7 @@ class ReadFile:
                     raw.append(l)
                 else:
                     data.append(d)
-        if axes:
+        if axes and len(legends) <= 2:
             legends = axes
         elif not bo_plumed and legends:
             legends.insert(0,'time')

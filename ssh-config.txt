@@ -1,0 +1,21 @@
+Client:
+    add git ssh-key
+    >>> ssh-keygen -t rsa -C "email@addr.com"
+    default under `.ssh/`, files `id_rsa`(private) & `id_rsa.pub`(public)
+
+    # paste content in file < id_rsa.pub > to git account
+    cmd: ssh-agent
+         $? --> 0 running with passpharse, 1 running without passpharse, 2 not running
+    cmd: ssh-add
+
+Server:
+    >>> cat "@Client/.ssh/id_rsa.pub" >> .ssh/authorized_keys
+    >>> touch ~/.Xauthority
+
+    set permission:
+        drwx------  ~/.ssh
+        -rw-------  ~/.ssh/authorized_keys
+        -rw-r--r--  ~/.ssh/known_hosts
+        -rw-------  ~/.Xauthority
+
+

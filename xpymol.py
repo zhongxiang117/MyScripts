@@ -28,6 +28,11 @@ from pymol import cmd
 from pymol import stored
 from pymol import selector
 
+import math
+
+
+YES = [1, True, '1', 'T', 'True', 'TRUE', 'Y', 'Yes', 'YES', 'y', 'yes']
+NO = [0, False, None, 'NONE', 'None', '0', 'F', 'False', 'FALSE', 'N', 'No', 'NO', 'n', 'no']
 
 def xx_get_property_pythonic(sel='sele'):
     """
@@ -56,7 +61,7 @@ def xx_get_property(sel='sele'):
 
     name, resn, resi, resv, chain, segi, elem, alt, q, b, vdw, type,
     partial_charge, formal_charge, elec_radius, text_type, label,
-    numeric_type, model*, state*, index*, ID, rank, color, ss,
+    numeric_type, model*, state*, index*, id (starts from 1), rank, color, ss,
     cartoon, flags
     """
     if sel not in cmd.get_names('all'): sel = 'all'
@@ -83,7 +88,7 @@ cmd.extend('xx_pdb2ss', xx_pdb2ss)
 cmd.auto_arg[0]['xx_pdb2ss'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
-def xx_get_helix(sel='sele',save2file=1):
+def xx_get_helix(sel='sele', save2file=True):
     """
     get distance between O[i] and N[i+3|i+4|i+5], save to file or print to stdout
     """
@@ -117,7 +122,7 @@ def xx_get_helix(sel='sele',save2file=1):
         on5 = pow(sum((j-k)**2 for j,k in zip(oc,nc5)), 0.5)
         rstlist.append((t,on3,on4,on5))
 
-    if save2file:
+    if save2file in YES:
         with open('helix.dat','wt') as f:
             for g in rstlist:
                 f.write('{:6}  {:7.3f}  {:7.3f}  {:7.3f}\n'.format(*g))
@@ -138,7 +143,7 @@ cmd.extend('xx_get_helix', xx_get_helix)
 cmd.auto_arg[0]['xx_get_helix'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
-def xx_get_phi_psi_omega(sel='sele',save2file=1):
+def xx_get_phi_psi_omega(sel='sele', save2file=True):
     """
     get phi/psi/omega, save to file or print to stdout
     """
@@ -187,7 +192,7 @@ def xx_get_phi_psi_omega(sel='sele',save2file=1):
         if phi or psi or omege:
             rstlist.append((resi, phi, psi, omege))
 
-    if save2file:
+    if save2file in YES:
         with open('phi_psi_omega.dat','wt') as f:
             f.write('resnum    phi       psi      omega\n')
             for g in rstlist:
@@ -208,7 +213,7 @@ def xx_get_info_for_pair_fit(sel='sele'):
     """
     stored.p = []
     #cmd.iterate(sel, 'stored.p.append("/%s/%s/%s/%s`%s/%s"%(model,segi,chain,resn,resi,name))')
-    cmd.iterate(sel, 'stored.p.append("%s and ID %s"%(model,ID))')
+    cmd.iterate(sel, 'stored.p.append("%s and id %s"%(model,id))')
     if len(stored.p) % 2 != 0:
         print('Warning: number of pair should be even')
         return
@@ -221,7 +226,7 @@ cmd.extend('xx_get_info_for_pair_fit', xx_get_info_for_pair_fit)
 cmd.auto_arg[0]['xx_get_info_for_pair_fit'] = cmd.auto_arg[0]['align']   # for auto-completion
 
 
-def xx_get_molinfo(sel=None,solvent_radius=None):
+def xx_get_molinfo(sel=None, solvent_radius=None):
     """
     Formula, Number Atoms, M.W., Exact Mass, Solvent Accessible Surface, Solvent Excluded Surface
 
@@ -286,6 +291,180 @@ def xx_get_molinfo(sel=None,solvent_radius=None):
 cmd.extend('xx_get_molinfo', xx_get_molinfo)
 cmd.auto_arg[0]['xx_get_molinfo'] = cmd.auto_arg[0]['align']   # for auto-completion
 
+
+def xx_find_steric_clashes(sel1, sel2=None, distance_cutoff=1.0):
+    """
+    find steric clashes, if sel2 is input, find clashes between sel1 and sel2
+    otherwise, find self clashes after excluding bonds,
+    note, sel2 can be skipped by using 0, n, No
+    default: sel2=None, distance_cutoff=1.0
+    """
+    second = sel2 if sel2 else sel1
+    pairs = cmd.find_pairs(sel1, second, mode=0, cutoff=distance_cutoff)
+
+    if sel2 in NO:
+        members = ''
+        for i, (a,b) in enumerate(pairs,1):
+            sa = '{:} and id {:}'.format(sel1, a[1])
+            sb = '{:} and id {:}'.format(second, b[1])
+            cmd.distance(f'clash_{i}', sa, sb)
+            members += f'clash_{i}  '
+        name = cmd.get_unused_name('steric_clashes',False)
+        cmd.group(name, members)
+    else:
+        pass
+
+cmd.extend('xx_find_steric_clashes', xx_find_steric_clashes)
+cmd.auto_arg[0]['xx_find_steric_clashes'] = cmd.auto_arg[0]['align']    # for auto-completion
+cmd.auto_arg[1]['xx_find_steric_clashes'] = cmd.auto_arg[0]['align']    # for auto-completion
+
+
+def xx_find_hydrogen_bonds(sel1, sel2, distance_cutoff=3.5, angle_cutoff=100):
+    """
+    find hydrogen bonds, only geometry is considered but not atom types or force fields
+    default: distance_cutoff=3.5, angle_cutoff=100
+    """
+    pairs = cmd.find_pairs(sel1, sel2, mode=1, cutoff=distance_cutoff, angle=angle_cutoff)
+    members = ''
+    use = set()
+    for i, (a,b) in enumerate(pairs,1):
+        sa = '{:} and id {:}'.format(sel1, a[1])
+        sb = '{:} and id {:}'.format(sel2, b[1])
+        cmd.distance(f'hbond_{i}', sa, sb)
+        members += f'hbond_{i}  '
+
+        at = cmd.get_model(sa).atom[0]
+        bt = cmd.get_model(sb).atom[0]
+        if at.resi.strip():
+            use.add('{:} and resi {:}'.format(sel1, at.resi))
+        else:
+            use.add(sa)
+        if bt.resi.strip():
+            use.add('{:} and resi {:}'.format(sel1, bt.resi))
+        else:
+            use.add(sb)
+
+    name = cmd.get_unused_name('hbonds',False)
+    cmd.group(name, members)
+
+    news = ''
+    for i,s in enumerate(use,1):
+        n = 'r' + str(i)
+        cmd.create(n, s, zoom=0)
+        news += n + ' '
+    name = cmd.get_unused_name('hbonds_frags',False)
+    cmd.group(name, news)
+
+
+
+cmd.extend('xx_find_hydrogen_bonds', xx_find_hydrogen_bonds)
+cmd.auto_arg[0]['xx_find_hydrogen_bonds'] = cmd.auto_arg[0]['align']    # for auto-completion
+cmd.auto_arg[1]['xx_find_hydrogen_bonds'] = cmd.auto_arg[0]['align']    # for auto-completion
+
+
+def xx_find_aromatic_rings(sel, show=True, show_center=False):
+    """
+    find aromatic rings by using openbabel.pybel
+    default: show=True, show_center=False
+    """
+    rings = []
+    pdb = cmd.get_pdbstr(sel)
+    mol = pybel.readstring('pdb', pdb)
+    obmol = mol.OBMol
+    rings = []
+    for ring in obmol.GetSSSR():
+        aids = list(ring._path)  # atom indices, starts from 1
+        atoms = [obmol.GetAtom(i) for i in aids]
+        if all([a.IsAromatic() for a in atoms]):
+            
+            xyzs = [(t.GetX(), t.GetY(), t.GetZ()) for t in [a.GetVector() for a in atoms]]
+
+            sx = sum([i[0] for i in xyzs])
+            sy = sum([i[1] for i in xyzs])
+            sz = sum([i[2] for i in xyzs])
+            centroid = [sx/len(xyzs), sy/len(xyzs), sz/len(xyzs)]
+
+            u, v, w = xyzs[0], xyzs[1], xyzs[2]
+            r = [u[0]-w[0], u[1]-w[1], u[2]-w[2]]
+            t = [u[0]-v[0], u[1]-v[1], u[2]-v[2]]
+            norm = [r[1]*t[2] - r[2]*t[1],  r[2]*t[0] - r[0]*t[2],  r[0]*t[1] - r[1]*t[0]]
+            l = math.sqrt(sum([i*i for i in norm]))
+            if l > 0.000001:
+                norm = [i/l for i in norm]
+
+            sele = sel + ' and id ' + '+'.join([str(i) for i in aids])
+
+            rings.append({
+                'ring_ids': aids,
+                'selector': sele,
+                'centroid': centroid,
+                'norm': norm,
+            })
+
+    if show in YES:
+        members = ''
+        for i,g in enumerate(rings,1):
+            cmd.select(f'ring_{i}', g['selector'])
+            members += f'ring_{i}  '
+        name = cmd.get_unused_name('aromatic_rings',False)
+        cmd.group(name, members)
+
+    if show_center in YES:
+        members = ''
+        for i,g in enumerate(rings,1):
+            cmd.pseudoatom(f'cent_{i}', pos=g['centroid'])
+            members += f'cent_{i}  '
+        name = cmd.get_unused_name('aromatic_centers',False)
+        cmd.group(name, members)
+
+    print('XX: number of aromatic rings: {:}:  {:}'.format(sel, len(rings)))
+
+    return rings
+
+cmd.extend('xx_find_aromatic_rings', xx_find_aromatic_rings)
+cmd.auto_arg[0]['xx_find_aromatic_rings'] = cmd.auto_arg[0]['align']    # for auto-completion
+
+
+def xx_find_pi_pi_stacks(sel1, sel2, min_dist=3.5, max_dist=5.5, angle=30.0):
+    """
+    find pi-pi stacking
+    default: min_dist=3.5, max_dist=5.5, angle=30.0
+    """
+
+    rings1 = xx_find_aromatic_rings(sel1, False, False)
+    rings2 = xx_find_aromatic_rings(sel2, False, False)
+
+    pis = []
+    for r1 in rings1:
+        for r2 in rings2:
+            c1, n1 = r1['centroid'], r1['norm']
+            c2, n2 = r2['centroid'], r2['norm']
+
+            r = [c1[0]-c2[0], c1[1]-c2[1], c1[2]-c2[2]]
+            dist = math.sqrt(sum([i*i for i in r]))
+            if not (min_dist <= dist and dist <= max_dist): continue
+
+            u = sum([n1[0]*n2[0], n1[1]*n2[1], n1[2]*n2[2]])
+            ang = math.degrees(math.acos(min(abs(u), 1.0)))     # ensure [0, 180]
+            if ang <= angle or (150 <= ang and ang <= 180):     # stacked or flipped
+                pis.append((r1,r2))
+    
+    if pis:
+        members = ''
+        for i, (r1,r2) in enumerate(pis,1):
+            cmd.pseudoatom(f'cent1_{i}', pos=r1['centroid'])
+            cmd.pseudoatom(f'cent2_{i}', pos=r2['centroid'])
+            cmd.distance(f'pp_{i}', f'cent1_{i}', f'cent2_{i}')
+            cmd.group(f'pi_pi_{i}', f'cent1_{i}  cent2_{i}  pp_{i}')
+            members += f'pi_pi_{i}  '
+        name = cmd.get_unused_name('pi_pi_stacks',False)
+        cmd.group(name, members)
+
+    print('XX: number of pi-pi stacks: {:}'.format(len(pis)))
+
+cmd.extend('xx_find_pi_pi_stacks', xx_find_pi_pi_stacks)
+cmd.auto_arg[0]['xx_find_pi_pi_stacks'] = cmd.auto_arg[0]['align']  # for auto-completion
+cmd.auto_arg[1]['xx_find_pi_pi_stacks'] = cmd.auto_arg[0]['align']  # for auto-completion
 
 
 

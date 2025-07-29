@@ -126,7 +126,7 @@ class ReadFile:
                     raw.append(l)
                 else:
                     data.append(d)
-        if axes and len(legends) <= 2:
+        if axes and len(legends) <= 1:
             legends = axes
         elif not bo_plumed and legends:
             legends.insert(0,'time')

@@ -30,7 +30,8 @@ import re
 import argparse
 import tokenize
 import py_compile
-
+import zipfile
+import tempfile
 
 FEATURES = [
     'version 0.1.0 : start',
@@ -437,15 +438,13 @@ def enumerate_local_modules(path,include_files=None,strip=False):
     return list(local_modules)
 
 
-def _zip_packall(fileobjs,precompile=True):
+def _zip_packall(fileobjs,precompile=True,compress_only=None):
     """
     Args:
         fileobjs : [(fobj, modulename), filename, ...]      # tuple 2 | file
 
     * The first item will be used as `__main__.py`
     """
-    import zipfile
-    import tempfile
     finals = []
     for t in fileobjs:
         bo = False
@@ -469,14 +468,15 @@ def _zip_packall(fileobjs,precompile=True):
         print('Fatal: zip_py: no inputs')
         return
 
-    # This is so it will still execute as a zip
-    if finals[0][0].endswith('.py'):
-        finals[0] = (finals[0][0],'__main__.py')
-    elif finals[0][0].endswith('.pyc'):
-        finals[0] = (finals[0][0],'__main__.pyc')
-    else:
-        print('Note: use python source: zipfile::__main__')
-        finals[0] = (finals[0][0],'__main__.py')
+    if not compress_only:
+        # This is so it will still execute as a zip
+        if finals[0][0].endswith('.py'):
+            finals[0] = (finals[0][0],'__main__.py')
+        elif finals[0][0].endswith('.pyc'):
+            finals[0] = (finals[0][0],'__main__.pyc')
+        else:
+            print('Note: use python source: zipfile::__main__')
+            finals[0] = (finals[0][0],'__main__.py')
 
     i = 1
     while True:
@@ -507,6 +507,11 @@ def _zip_packall(fileobjs,precompile=True):
         if not os.path.isfile(t[0]):
             w.close()
     z.close()
+
+    if compress_only:
+        p = round(os.path.getsize(dest)/total_old_size, 4)
+        print(f'Note: overall size reduction: {p} of original size\n')
+        return
 
     i = 1
     while True:
@@ -605,6 +610,12 @@ def main():
         dest='include_files',
         nargs='+',
         help='include additional files, such as README or data file'
+    )
+    parser.add_argument(
+        '-X', '--compress-only',
+        dest='compress_only',
+        action='store_true',
+        help='compress to zipfile only'
     )
     parser.add_argument(
         '-L', '--list-modules',
@@ -712,7 +723,7 @@ def main():
         return
 
     bo = True if args.precompile else False
-    _zip_packall(files,precompile=bo)
+    _zip_packall(files,precompile=bo,compress_only=args.compress_only)
 
 
 if __name__ == '__main__':

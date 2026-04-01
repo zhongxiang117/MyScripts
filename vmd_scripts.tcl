@@ -133,13 +133,13 @@ Usage:
 
 
 
-proc xx_draw_box {{point {}} {width 1} {length {}} {height {}}} {
+proc xx_draw_box {{point {}} {width 1} {length {}} {height {}} {thickness 1}} {
 
     if {$point == "" || $point == "-h" || $point == "--help"} {
         puts "
 Usage:
 
-    >>> xx_draw_box {{point {0 0 0}} {width 1} {length {}} {height {}}}
+    >>> xx_draw_box {{point {0 0 0}} {width 1} {length {}} {height {}} {thickness 1}}
 
     Idea:
         * box is drwan in the first quadrant of space (x+, y+, z+)
@@ -183,18 +183,18 @@ Usage:
     set zp [list $xb $yb $pz]
     set yz [list $xb $py $pz]
 
-    draw line $point $xp
-    draw line $point $yp
-    draw line $point $zp
-    draw line $xp $xy
-    draw line $xp $xz
-    draw line $xy $pp
-    draw line $xy $yp
-    draw line $pp $xz 
-    draw line $pp $yz
-    draw line $zp $yz
-    draw line $zp $xz
-    draw line $yz $yp
+    draw line $point $xp width $thickness
+    draw line $point $yp width $thickness
+    draw line $point $zp width $thickness
+    draw line $xp $xy width $thickness
+    draw line $xp $xz width $thickness
+    draw line $xy $pp width $thickness
+    draw line $xy $yp width $thickness
+    draw line $pp $xz width $thickness
+    draw line $pp $yz width $thickness
+    draw line $zp $yz width $thickness
+    draw line $zp $xz width $thickness
+    draw line $yz $yp width $thickness
 }
 
 

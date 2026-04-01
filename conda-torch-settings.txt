@@ -42,6 +42,17 @@ To get their calculated values:
 
 4) Link those core libraries to other envs by using file `zz.pth`
 
+Relation:
+    OS Kernel `uname -r` -> Default GCC `/usr/bin/gcc --version` -> GLIBC `/usr/bin/ldd --version`
+    (https://developer.nvidia.com/cuda-toolkit-archive -> Installation Guide)
+        ~~> CUDA Toolkit (https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html#id7)
+            -> Driver (https://www.nvidia.com/en-us/drivers/)
+            => Hardware Brand (https://en.wikipedia.org/wiki/CUDA#GPUs_supported)
+                -> Compute Capability ~~> CUDA Toolkit
+    @@ https://developer.nvidia.com/cuda-12-4-1-download-archive  =>  Linux  x86_64  RHEL  7  runfile(local)
+        => `cuda_12.4.1_550.54.15_linux.run` contains everything, Driver & NVCC Compiler
+    @@ Clean Install. After, better keep `NVIDIA-xx.run` file (Driver only)
+
 5) Create new environment for `PyTorch`
   -> https://pytorch.org/get-started/locally/
   -> https://pytorch.org/get-started/previous-versions/

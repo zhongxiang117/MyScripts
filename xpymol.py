@@ -4,12 +4,19 @@ My PyMol scripts
 'PYMOL_PATH'    : '/my-build-dir/pymol/pymol_path'
 'PYMOL_DATA'    : '/my-build-dir/pymol/pymol_path/data'
 'PYMOL_SCRIPTS' : '/my-build-dir/pymol/pymol_path/scripts'
+"""
 
+USAGE = """
 select  :   /object/segi/chain/resi/name
 example :   /1m17/A/A/TYR`803/CA        "`"(backtick) means "at"
+defines :
+    name, resn, resi, resv, chain, segi, elem, alt, q, b, vdw, type,
+    partial_charge, formal_charge, elec_radius, text_type, label,
+    numeric_type, model*, state*, index*, id (starts from 1), rank, color, ss,
+    cartoon, flags
 
 
-useful:
+useful:  https://pymolwiki.org/index.php/Selection_Algebra
     select hydrophobes, (resn ala+gly+val+ile+leu+phe+met and !name C+N+O)
     select hydrophilics, (resn arg+lys+his+glu+asp+asn+gln+thr+ser+cys and !name C+N+O)
     select aromatics, (resn phe+tyr+trp+his and !name C+N+O)
@@ -20,10 +27,41 @@ useful:
     select polar, (resn ser+thr+asn+gln+tyr)
     select nopolar, ('resn met+phe+pro+trp+val+leu+ile+ala')
     select backbone, (name c+n+o+ca)
+
+
+>>> model = cmd.get_model(sel)
+# check `PYMOL_PATH/../../chempy/models.py`
+# e.g.: model.get_min_max()
+
+>>> atoms = model.atom      # List[chempy.Atom]
+# check `PYMOL_PATH/../../chempy/__init__.py`
+# e.g.:  a.resn, a.resi, a.coord, a.ss
+
+    model = cmd.get_model(sel)
+    atoms = model.atom
+    for a in atoms:
+        print(a.resn, a.resi, a.coord, a.ss)
+
+
+# `stored` is import by default
+stored.p = 0
+iterate sele, stored.p += 1
+
+
+set_name old_name, new_name
+
+set cartoon_transparency, 0.5, <sele>
+
+set label_size, 10
+label sele, "x"
+# "Editing" mode, `ctrl+left_click`, to move label
+
+
 """
 
 from openbabel import pybel
 
+import numpy as np
 from pymol import cmd
 from pymol import stored
 from pymol import selector
@@ -34,23 +72,11 @@ import math
 YES = [1, True, '1', 'T', 'True', 'TRUE', 'Y', 'Yes', 'YES', 'y', 'yes']
 NO = [0, False, None, 'NONE', 'None', '0', 'F', 'False', 'FALSE', 'N', 'No', 'NO', 'n', 'no']
 
-def xx_get_property_pythonic(sel='sele'):
-    """
-    get pdb property, default sel=sele
 
-    >>> model = cmd.get_model(sel)
-    # check `PYMOL_PATH/../../chempy/models.py`
-    # e.g.: model.get_min_max()
+def xx_help_grammar(*args, **kws):
+    print(USAGE)
 
-    >>> atoms = model.atom      # List[chempy.Atom]
-    # check `PYMOL_PATH/../../chempy/__init__.py`
-    # e.g.:  a.resn, a.resi, a.coord, a.ss
-    """
-    if sel not in cmd.get_names('all'): sel = 'all'
-    model = cmd.get_model(sel)
-    atoms = model.atom
-    for a in atoms:
-        print(a.resn, a.resi, a.coord, a.ss)
+cmd.extend('xx_help_grammar', xx_help_grammar)
 
 
 def xx_get_property(sel='sele'):
@@ -300,7 +326,7 @@ def xx_find_steric_clashes(sel1, sel2=None, distance_cutoff=1.0):
     default: sel2=None, distance_cutoff=1.0
     """
     second = sel2 if sel2 else sel1
-    pairs = cmd.find_pairs(sel1, second, mode=0, cutoff=distance_cutoff)
+    pairs = cmd.find_pairs(sel1, second, mode=0, cutoff=float(distance_cutoff))
 
     if sel2 in NO:
         members = ''
@@ -324,7 +350,7 @@ def xx_find_hydrogen_bonds(sel1, sel2, distance_cutoff=3.5, angle_cutoff=100):
     find hydrogen bonds, only geometry is considered but not atom types or force fields
     default: distance_cutoff=3.5, angle_cutoff=100
     """
-    pairs = cmd.find_pairs(sel1, sel2, mode=1, cutoff=distance_cutoff, angle=angle_cutoff)
+    pairs = cmd.find_pairs(sel1, sel2, mode=1, cutoff=float(distance_cutoff), angle=float(angle_cutoff))
     members = ''
     use = set()
     for i, (a,b) in enumerate(pairs,1):
@@ -355,8 +381,6 @@ def xx_find_hydrogen_bonds(sel1, sel2, distance_cutoff=3.5, angle_cutoff=100):
     name = cmd.get_unused_name('hbonds_frags',False)
     cmd.group(name, news)
 
-
-
 cmd.extend('xx_find_hydrogen_bonds', xx_find_hydrogen_bonds)
 cmd.auto_arg[0]['xx_find_hydrogen_bonds'] = cmd.auto_arg[0]['align']    # for auto-completion
 cmd.auto_arg[1]['xx_find_hydrogen_bonds'] = cmd.auto_arg[0]['align']    # for auto-completion
@@ -376,7 +400,7 @@ def xx_find_aromatic_rings(sel, show=True, show_center=False):
         aids = list(ring._path)  # atom indices, starts from 1
         atoms = [obmol.GetAtom(i) for i in aids]
         if all([a.IsAromatic() for a in atoms]):
-            
+
             xyzs = [(t.GetX(), t.GetY(), t.GetZ()) for t in [a.GetVector() for a in atoms]]
 
             sx = sum([i[0] for i in xyzs])
@@ -430,6 +454,8 @@ def xx_find_pi_pi_stacks(sel1, sel2, min_dist=3.5, max_dist=5.5, angle=30.0):
     find pi-pi stacking
     default: min_dist=3.5, max_dist=5.5, angle=30.0
     """
+    min_dist = float(min_dist)
+    max_dist = float(max_dist)
 
     rings1 = xx_find_aromatic_rings(sel1, False, False)
     rings2 = xx_find_aromatic_rings(sel2, False, False)
@@ -448,7 +474,7 @@ def xx_find_pi_pi_stacks(sel1, sel2, min_dist=3.5, max_dist=5.5, angle=30.0):
             ang = math.degrees(math.acos(min(abs(u), 1.0)))     # ensure [0, 180]
             if ang <= angle or (150 <= ang and ang <= 180):     # stacked or flipped
                 pis.append((r1,r2))
-    
+
     if pis:
         members = ''
         for i, (r1,r2) in enumerate(pis,1):
@@ -465,6 +491,203 @@ def xx_find_pi_pi_stacks(sel1, sel2, min_dist=3.5, max_dist=5.5, angle=30.0):
 cmd.extend('xx_find_pi_pi_stacks', xx_find_pi_pi_stacks)
 cmd.auto_arg[0]['xx_find_pi_pi_stacks'] = cmd.auto_arg[0]['align']  # for auto-completion
 cmd.auto_arg[1]['xx_find_pi_pi_stacks'] = cmd.auto_arg[0]['align']  # for auto-completion
+
+
+def xx_split_to_group(group=None, sel=None):
+    """
+    split selection to group by using predefined keywords
+    => chains  residues  ligands  solvents  metals  others  all
+
+    link: https://pymolwiki.org/index.php/Selection_Algebra
+    """
+    if not group: group = 'all'
+    if not sel: sel = 'sele'
+
+    defined = {
+        'Chains':'polymer', 'Ligands':'organic', 'Solvents':'solvent', 'Metals':'metals',
+    }
+    special = {'Hetatoms':'hetatm', 'Others':'others', 'All':'all', 'Residues':'polymer', }
+    pdefs = [k.lower() for k in [*defined.keys(), *special.keys()]]
+    if group not in pdefs:
+        print('XX: not valid: ', group)
+        print(' -> ', ' '.join(pdefs))
+        return
+
+    sg = group.capitalize()
+    kg = defined[sg]
+    sg = f'{sel}-{sg}'
+
+    if group == 'others':
+        kg = ' and '.join(['not '+v for v in defined.values()])
+        sg = f'{sel}-Others'
+    elif group == 'all':
+        for g in [k.lower() for k in defined.keys()]:
+            xx_split_to_group(group=g, sel=sel)
+    else:
+        u = cmd.get_unused_name()
+        cmd.select(u, f'{kg} and {sel}')
+        model = cmd.get_model(u)
+        atoms = model.atom
+        if group == 'chains':
+            chains = {}
+            for g in model.get_residues():
+                ri = atoms[g[0]].resi
+                fm = '{:}_{:}-{:}n'.format(atoms[g[0]].resn, ri, g[1]-g[0])
+                cmd.create(fm, f'resi {ri} and {sel}', zoom=0)
+                rc = atoms[g[0]].chain
+                chains.setdefault(rc, []).append(fm)
+            if chains:
+                gc = []
+                for c,rs in chains.items():
+                    if not c: c = 'X'
+                    print('XX: creating chain: ', f'{sg}-{c}')
+                    s = '{:}-{:}n'.format(c, len(rs))
+                    cmd.group(s, ' '.join(rs))
+                    gc.append(s)
+                cmd.group(sg, ' '.join(gc))
+
+                for c,rs in chains.items():
+                    if not c: continue
+                    ch = 'Chain-{:}-{:}n'.format(c,len(rs))
+                    cmd.create(ch, f'chain {c} and {sel}', zoom=0)
+                    cmd.group(sg, ch)
+            else:
+                print('XX: ignoring group: ', sg)
+        else:
+            names = []
+            for g in model.get_residues():
+                ri = atoms[g[0]].resi
+                fm = '{:}_{:}-{:}n'.format(atoms[g[0]].resn, ri, g[1]-g[0])
+                cmd.create(fm, f'resi {ri} and {sel}', zoom=0)
+                names.append(fm)
+            if names:
+                print('XX: creating group: ', sg)
+                s = '{:}-{:}n'.format(sg, len(names))
+                cmd.group(s, ' '.join(names))
+            else:
+                print('XX: ignoring group: ', sg)
+        cmd.delete(u)
+
+cmd.extend('xx_split_to_group', xx_split_to_group)
+cmd.auto_arg[0]['xx_split_to_group'] = [
+    lambda: cmd.Shortcut(['chains', 'residues', 'ligands', 'solvents', 'metals', 'others', 'all']),
+    '1st',
+    ', '
+]
+cmd.auto_arg[1]['xx_split_to_group'] = cmd.auto_arg[0]['align']  # for auto-completion
+
+
+def xx_expand_selection_by(sel=None, distance=3.0, expand_type=None, create=None, all_visiable_objects=None):
+    """
+    expand `sel` by x Angstrom for self or for all GUI visible objects
+    """
+    if not sel: sel = 'sele'
+    distance = float(distance)
+    distsq = distance * distance
+    if not expand_type:
+        expand_type = 'atom'
+    elif expand_type.lower() in ['a', 'atom']:
+        expand_type = 'atom'
+    elif expand_type.lower() in ['r', 'residue']:
+        expand_type = 'residue'
+    else:
+        print('Warning: not valid `expand_type` -- use default `atom` instead')
+        expand_type = 'atom'
+
+    if all_visiable_objects in YES:
+        names = cmd.get_names(enabled_only=True)
+    else:
+        stored.names = set()
+        cmd.iterate(sel, 'stored.names.add(model)')
+        names = [*list(stored.names)]
+    print('XX: using: ', '  '.join(names))
+
+    model = cmd.get_model(sel)
+    if len(model.atom) == 0:
+        print('Fatal: no atoms -- empty selection')
+        return
+
+    xyzref = np.array([a.coord for a in model.atom])
+    xyzref_exp = xyzref[:, np.newaxis, :]
+    gets = []
+
+    info = ''
+    if expand_type == 'atom':
+        for n in names:
+            model = cmd.get_model(n)
+            atoms = model.atom
+
+            if len(atoms) == 0:
+                print('XX: ignoring: not valid molecule:', n)
+                continue
+
+            xyzcmp = np.array([a.coord for a in atoms])
+            xyzcmp = xyzcmp[np.newaxis, :, :]
+            sdist = np.sum((xyzref_exp - xyzcmp) ** 2, axis=2)
+            d = np.where(sdist <= distsq)[1]
+            index = [a.index for a in [atoms[i] for i in d]]
+            gets.extend([f'(index {i} and {n})' for i in set(index)])
+        info = 'XX: numbers atoms: {:}'.format(len(gets))
+
+    elif expand_type == 'residue':
+        for n in names:
+            model = cmd.get_model(n)
+            atoms = model.atom
+            for g in model.get_residues():
+                xyzcmp = np.array([atoms[i].coord for i in range(g[0],g[1])])
+                xyzcmp = xyzcmp[np.newaxis, :, :]
+                sdist = np.sum((xyzref_exp - xyzcmp) ** 2, axis=2)
+                if np.min(sdist) <= distsq:
+                    ri = atoms[g[0]].resi
+                    gets.append(f'(resi {ri} and {n})')
+        info = 'XX: numbers residues: {:}'.format(len(gets))
+
+    print(info)
+    if create in YES:
+        n = cmd.get_unused_name(prefix='expd')
+        print('XX: creating: ', n)
+        cmd.create(n, ' or '.join(gets), zoom=0)
+    else:
+        n = cmd.get_unused_name(prefix='selc')
+        print('XX: selecting: ', n)
+        cmd.select(n, ' or '.join(gets))
+
+cmd.extend('xx_expand_selection_by', xx_expand_selection_by)
+cmd.auto_arg[0]['xx_expand_selection_by'] = cmd.auto_arg[0]['align']  # for auto-completion
+cmd.auto_arg[2]['xx_expand_selection_by'] = [
+    lambda: cmd.Shortcut(['atom', 'residue']),
+    '3rd',
+    ', '
+]
+
+import zipimport
+plip_pymol_plugin_xz = None
+try:
+    ip = zipimport.zipimporter('/home/xiang/.pymol/startup/pymol_plip.zip')
+    ip.load_module('plip')
+    from plip.xpymol import plip_pymol_plugin_xz
+except ImportError:
+    plip_pymol_plugin_xz = None
+
+if plip_pymol_plugin_xz:
+    def xx_plip(obj='', args=''):
+        """
+Usage:  xx_plip  obj, ddd=1 aap=3 vvv       # use space
+check: -h / --help
+"""
+        ss = obj + args
+        if '-h' in ss or '--help' in ss:
+            args = '-h'
+            pdbstr = None
+        else:
+            pdbstr = cmd.get_pdbstr(obj)
+        plip_pymol_plugin_xz(None,pdbstr,args)
+
+    cmd.extend('xx_plip', xx_plip)
+    cmd.auto_arg[0]['xx_plip'] = cmd.auto_arg[0]['align']  # for auto-completion
+
+
+
 
 
 

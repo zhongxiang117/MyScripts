@@ -1,7 +1,7 @@
 """My Scripts for Schrodinger Maestro Usage
 
 Prefer to using syntax `from SCRIPTS import *`, then all customized functions
-will be starting with `myfunc_*`
+will be starting with `xx_*`
 
 Care:
     1) atom's `index' starts from 1
@@ -29,34 +29,34 @@ VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
 __version__ = VERSION
 
 __all__ = [
-    'myfunc_get_selected_rows',
-    'myfunc_get_included_rows',
-    'myfunc_get_selected_titles',
-    'myfunc_get_included_titles',
-    'myfunc_get_selected_structures',
-    'myfunc_get_included_structures',
-    'myfunc_get_selected_molecules',
-    'myfunc_get_included_molecules',
-    'myfunc_get_selected_atoms_separated_by_molecule',
-    'myfunc_get_included_atoms_separated_by_molecule',
-    'myfunc_get_selected_atoms_separated_by_entry',
-    'myfunc_get_included_atoms_separated_by_entry',
-    'myfunc_get_selected_entry_ids',
-    'myfunc_get_included_entry_ids',
-    'myfunc_get_selected_resnames_lists',
-    'myfunc_get_included_resnames_lists',
-    'myfunc_get_selected_resnames_sets',
-    'myfunc_get_included_resnames_sets',
-    'myfunc_get_selected_resnums',
-    'myfunc_get_included_resnums',
-    'myfunc_get_selected_atoms_charges_separated_by_molecule',
-    'myfunc_get_included_atoms_charges_separated_by_molecule',
-    'myfunc_get_selected_atoms_charges_separated_by_entry',
-    'myfunc_get_included_atoms_charges_separated_by_entry',
-    'myfunc_ws_get_chosen_atoms_indexes',
-    'myfunc_ws_get_chosen_atoms_indexes_detail',
-    'myfunc_ws_get_chosen_atoms',
-    'myfunc_ws_get_chosen_atoms_center_and_size',
+    'xx_get_selected_rows',
+    'xx_get_included_rows',
+    'xx_get_selected_titles',
+    'xx_get_included_titles',
+    'xx_get_selected_structures',
+    'xx_get_included_structures',
+    'xx_get_selected_molecules',
+    'xx_get_included_molecules',
+    'xx_get_selected_atoms_separated_by_molecule',
+    'xx_get_included_atoms_separated_by_molecule',
+    'xx_get_selected_atoms_separated_by_entry',
+    'xx_get_included_atoms_separated_by_entry',
+    'xx_get_selected_entry_ids',
+    'xx_get_included_entry_ids',
+    'xx_get_selected_resnames_lists',
+    'xx_get_included_resnames_lists',
+    'xx_get_selected_resnames_sets',
+    'xx_get_included_resnames_sets',
+    'xx_get_selected_resnums',
+    'xx_get_included_resnums',
+    'xx_get_selected_atoms_charges_separated_by_molecule',
+    'xx_get_included_atoms_charges_separated_by_molecule',
+    'xx_get_selected_atoms_charges_separated_by_entry',
+    'xx_get_included_atoms_charges_separated_by_entry',
+    'xx_ws_get_chosen_atoms_indexes',
+    'xx_ws_get_chosen_atoms_indexes_detail',
+    'xx_ws_get_chosen_atoms',
+    'xx_ws_get_chosen_atoms_center_and_size',
 ]
 
 
@@ -76,48 +76,48 @@ def _get_rows(included=False):
     return rows
 
 
-def myfunc_get_selected_rows():
+def xx_get_selected_rows():
     return _get_rows()
 
 
-def myfunc_get_included_rows():
+def xx_get_included_rows():
     return _get_rows(included=True)
 
 
-def myfunc_get_selected_titles():
+def xx_get_selected_titles():
     """1D: List[str, str, ...]"""
-    rows = myfunc_get_selected_rows()
+    rows = xx_get_selected_rows()
     return [i.title for i in rows]
 
 
-def myfunc_get_included_titles():
+def xx_get_included_titles():
     """1D: List[str, str, ...]"""
-    rows = myfunc_get_included_rows()
+    rows = xx_get_included_rows()
     return [i.title for i in rows]
 
 
-def myfunc_get_selected_structures():
+def xx_get_selected_structures():
     """1D: List[structure, structure, ...]"""
-    rows = myfunc_get_selected_rows()
+    rows = xx_get_selected_rows()
     #return [i.structure for i in rows]     # deprecated, properties are not copied!
     return [i.getStructure() for i in rows]
 
 
-def myfunc_get_included_structures():
+def xx_get_included_structures():
     """1D: List[structure, structure, ...]"""
-    rows = myfunc_get_included_rows()
+    rows = xx_get_included_rows()
     return [i.getStructure() for i in rows]
 
 
-def myfunc_get_selected_molecules():
-    sts = myfunc_get_selected_structures()
+def xx_get_selected_molecules():
+    sts = xx_get_selected_structures()
     mols = [[m for m in s.molecule] for s in sts]
     print(f'Note: number of total molecules: {sum([s.mol_total for s in sts])}')
     return mols
 
 
-def myfunc_get_included_molecules():
-    sts = myfunc_get_included_structures()
+def xx_get_included_molecules():
+    sts = xx_get_included_structures()
     mols = [[m for m in s.molecule] for s in sts]
     print(f'Note: number of total molecules: {sum([s.mol_total for s in sts])}')
     return mols
@@ -126,147 +126,147 @@ def myfunc_get_included_molecules():
 def _get_atoms_separated_by_molecule(included=False):
     """3D: List[[[atom, atom, ...], [atom, atom, ...], ...], ...]"""
     if included:
-        sts = myfunc_get_included_structures()
+        sts = xx_get_included_structures()
     else:
-        sts = myfunc_get_selected_structures()
+        sts = xx_get_selected_structures()
     atoms = [[[a for a in m.atom] for m in s.molecule] for s in sts]
     print(f'Note: number of total molecules: {sum([s.mol_total for s in sts])}')
     print(f'Note: number of total atoms: {sum([s.atom_total for s in sts])}')
     return atoms
 
 
-def myfunc_get_selected_atoms_separated_by_molecule():
+def xx_get_selected_atoms_separated_by_molecule():
     return _get_atoms_separated_by_molecule()
 
 
-def myfunc_get_included_atoms_separated_by_molecule():
+def xx_get_included_atoms_separated_by_molecule():
     return _get_atoms_separated_by_molecule(included=True)
 
 
 def _get_atoms_separated_by_entry(included=False):
     """2D: List[[atom, atom, ...], ...]"""
     if included:
-        sts = myfunc_get_included_structures()
+        sts = xx_get_included_structures()
     else:
-        sts = myfunc_get_selected_structures()
+        sts = xx_get_selected_structures()
     atoms = [[a for a in s.atom] for s in sts]
     total = sum([len(s) for s in atoms])
     print(f'Note: number of total atoms: {total}')
     return atoms
 
 
-def myfunc_get_selected_atoms_separated_by_entry():
+def xx_get_selected_atoms_separated_by_entry():
     return _get_atoms_separated_by_entry()
 
 
-def myfunc_get_included_atoms_separated_by_entry():
+def xx_get_included_atoms_separated_by_entry():
     return _get_atoms_separated_by_entry(included=True)
 
 
-def myfunc_get_selected_entry_ids():
+def xx_get_selected_entry_ids():
     """1D: List[str, str, ...]"""
-    rows = myfunc_get_selected_rows()
+    rows = xx_get_selected_rows()
     ids = [i.entry_id for i in rows]
     return ids
 
 
-def myfunc_get_included_entry_ids():
+def xx_get_included_entry_ids():
     """1D: List[str, str, ...]"""
-    rows = myfunc_get_included_rows()
+    rows = xx_get_included_rows()
     ids = [i.entry_id for i in rows]
     return ids
 
 
-def myfunc_get_selected_resnames_lists():
+def xx_get_selected_resnames_lists():
     """1D: List[str, str, ...]"""
-    sts = myfunc_get_selected_structures()
+    sts = xx_get_selected_structures()
     resnames = [[k.pdbres for j in i.molecule for k in j.residue] for i in sts]
     print(f'Note: number of total selected residues: {sum([len(i) for i in resnames])}')
     return resnames
 
 
-def myfunc_get_included_resnames_lists():
+def xx_get_included_resnames_lists():
     """1D: List[str, str, ...]"""
-    sts = myfunc_get_included_structures()
+    sts = xx_get_included_structures()
     resnames = [[k.pdbres for j in i.molecule for k in j.residue] for i in sts]
     print(f'Note: number of total included residues: {sum([len(i) for i in resnames])}')
     return resnames
 
 
-def myfunc_get_selected_resnames_sets():
+def xx_get_selected_resnames_sets():
     """1D: List[str, str, ...]"""
-    resnames = myfunc_get_selected_resnames_lists()
+    resnames = xx_get_selected_resnames_lists()
     return [list(set(i)) for i in resnames]
 
 
-def myfunc_get_included_resnames_sets():
+def xx_get_included_resnames_sets():
     """1D: List[str, str, ...]"""
-    resnames = myfunc_get_included_resnames_lists()
+    resnames = xx_get_included_resnames_lists()
     return [list(set(i)) for i in resnames]
 
 
-def myfunc_get_selected_resnums():
+def xx_get_selected_resnums():
     """1D: List[int, int, ...]"""
-    sts = myfunc_get_selected_structures()
+    sts = xx_get_selected_structures()
     resnums = [[k.resnum for j in i.molecule for k in j.residue] for i in sts]
     print(f'Note: number of total selected residues: {sum([len(i) for i in resnums])}')
     return resnums
 
 
-def myfunc_get_included_resnums():
+def xx_get_included_resnums():
     """1D: List[int, int, ...]"""
-    sts = myfunc_get_included_structures()
+    sts = xx_get_included_structures()
     resnums = [[k.resnum for j in i.molecule for k in j.residue] for i in sts]
     print(f'Note: number of total included residues: {sum([len(i) for i in resnums])}')
     return resnums
 
 
-def myfunc_get_selected_atoms_charges_separated_by_molecule():
+def xx_get_selected_atoms_charges_separated_by_molecule():
     """3D: List[[[float, float, ...], [float, float, ...], ...], ...]"""
-    full = myfunc_get_selected_atoms_separated_by_molecule()
+    full = xx_get_selected_atoms_separated_by_molecule()
     charges = [[[a.partial_charge for a in m] for m in s] for s in full]
     return charges
 
 
-def myfunc_get_included_atoms_charges_separated_by_molecule():
+def xx_get_included_atoms_charges_separated_by_molecule():
     """3D: List[[[float, float, ...], [float, float, ...], ...], ...]"""
-    full = myfunc_get_included_atoms_separated_by_molecule()
+    full = xx_get_included_atoms_separated_by_molecule()
     charges = [[[a.partial_charge for a in m] for m in s] for s in full]
     return charges
 
 
-def myfunc_get_selected_atoms_charges_separated_by_entry():
+def xx_get_selected_atoms_charges_separated_by_entry():
     """2D: List[[float, float, ...], ...]"""
-    full = myfunc_get_selected_atoms_separated_by_entry()
+    full = xx_get_selected_atoms_separated_by_entry()
     charges = [[a.partial_charge for a in m] for m in full]
     return charges
 
 
-def myfunc_get_included_atoms_charges_separated_by_entry():
+def xx_get_included_atoms_charges_separated_by_entry():
     """2D: List[[float, float, ...], ...]"""
-    full = myfunc_get_included_atoms_separated_by_entry()
+    full = xx_get_included_atoms_separated_by_entry()
     charges = [[a.partial_charge for a in m] for m in full]
     return charges
 
 
-def myfunc_ws_get_chosen_atoms_indexes():
+def xx_ws_get_chosen_atoms_indexes():
     """1D: List[int, int, ...]"""
     aids = maestro.selected_atoms_get()
     print(f'Note: workspace: number of chosen atoms: {len(aids)}')
     return [i-1 for i in aids]
 
 
-def myfunc_ws_get_chosen_atoms():
+def xx_ws_get_chosen_atoms():
     """2D: List[[atom, atom, ...], ...]"""
-    atoms = myfunc_get_included_atoms_separated_by_entry()
-    aids = myfunc_ws_get_chosen_atoms_indexes()
+    atoms = xx_get_included_atoms_separated_by_entry()
+    aids = xx_ws_get_chosen_atoms_indexes()
     full = [a for st in atoms for a in st]
     return [full[i] for i in aids]
 
 
-def myfunc_ws_get_chosen_atoms_indexes_detail():
+def xx_ws_get_chosen_atoms_indexes_detail():
     """1D: List[(eid,mid,aid), (eid,mid,aid), ...]"""
-    atoms = myfunc_ws_get_chosen_atoms()
+    atoms = xx_ws_get_chosen_atoms()
     return [(a.entry_id,a.molecule_number_by_entry-1,a.index-1) for a in atoms]
 
 
@@ -290,9 +290,9 @@ def _calc_center_and_size(crds):
     return [(xsum/n,ysum/n,zsum/n), (xmax-xmin,ymax-ymin,zmax-zmin)]
 
 
-def myfunc_ws_get_chosen_atoms_center_and_size():
+def xx_ws_get_chosen_atoms_center_and_size():
     """2D: List[ CenterCoord(x,y,z), BoxSize(xlen,ylen,zlen) ]"""
-    atoms = myfunc_ws_get_chosen_atoms()
+    atoms = xx_ws_get_chosen_atoms()
     crds = [a.xyz for a in atoms]
     return _calc_center_and_size(crds)
 

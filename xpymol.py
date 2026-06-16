@@ -4,6 +4,9 @@ My PyMol scripts
 'PYMOL_PATH'    : '/my-build-dir/pymol/pymol_path'
 'PYMOL_DATA'    : '/my-build-dir/pymol/pymol_path/data'
 'PYMOL_SCRIPTS' : '/my-build-dir/pymol/pymol_path/scripts'
+
+To debug from its source codes after BUILD (https://github.com/schrodinger/pymol-open-source):
+    vscode -> pymol/__main__.py
 """
 
 USAGE = """
@@ -67,6 +70,8 @@ from pymol import stored
 from pymol import selector
 
 import math
+import os
+import zipimport
 
 
 YES = [1, True, '1', 'T', 'True', 'TRUE', 'Y', 'Yes', 'YES', 'y', 'yes']
@@ -660,32 +665,55 @@ cmd.auto_arg[2]['xx_expand_selection_by'] = [
     ', '
 ]
 
-import zipimport
+
 plip_pymol_plugin_xz = None
 try:
-    ip = zipimport.zipimporter('/home/xiang/.pymol/startup/pymol_plip.zip')
+    ip = zipimport.zipimporter(os.path.join(os.path.dirname(__file__), 'pymol_plip.zip'))
     ip.load_module('plip')
     from plip.xpymol import plip_pymol_plugin_xz
 except ImportError:
     plip_pymol_plugin_xz = None
 
 if plip_pymol_plugin_xz:
-    def xx_plip(obj='', args=''):
+    def xx_plip(obj, args=''):
         """
 Usage:  xx_plip  obj, ddd=1 aap=3 vvv       # use space
 check: -h / --help
 """
-        ss = obj + args
-        if '-h' in ss or '--help' in ss:
-            args = '-h'
-            pdbstr = None
-        else:
-            pdbstr = cmd.get_pdbstr(obj)
-        plip_pymol_plugin_xz(None,pdbstr,args)
+        if obj in ['-h','--help']: args = '-h'
+        plip_pymol_plugin_xz(obj,args)
 
     cmd.extend('xx_plip', xx_plip)
     cmd.auto_arg[0]['xx_plip'] = cmd.auto_arg[0]['align']  # for auto-completion
 
+
+def xx_alter_sele(elem):
+    """
+    alter `sele` element to [C, N, O, S, P, F, Cl, Br, I, ...]
+
+    similar work:
+        alter pk1, elem=N
+        alter pk1, name=N
+        sort obj
+        spectrum elem, rainbow, obj, byres=0
+    """
+    sel = 'sele'
+    model = cmd.get_model(sel)
+    if not (model.atom and len(model.atom) == 1):
+        print('Fatal: only one element can be modified')
+        return
+    obj = model.atom[0].model
+    cmd.alter(sel, f'elem="{elem}"')        # inside quote is needed
+    cmd.alter(sel, f'name="{elem}"')
+    cmd.sort(obj)
+    cmd.spectrum('elem', 'rainbow', obj, byres=0)
+
+cmd.extend('xx_alter_sele', xx_alter_sele)
+cmd.auto_arg[0]['xx_alter_sele'] = [
+    lambda: cmd.Shortcut(['C','N','O','S','P','F','Cl','Br','I']),
+    '1st',
+    ', '
+]
 
 
 

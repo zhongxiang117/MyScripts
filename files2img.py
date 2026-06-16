@@ -16,6 +16,7 @@ import argparse
 FEATURES = [
     'version 0.1.0    : file to images',
     'version 0.2.0    : coroutine on read',
+    'version 0.3.0    : add support for `mol` file',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -59,6 +60,12 @@ class ReadQueue:
                 if not mol: continue
                 if not (mol.HasProp('_Name') and len(mol.GetProp('_Name').strip())):
                     mol.SetProp('_Name',name+'_'+str(i+1))
+                yield mol
+        elif file.endswith('.mol'):
+            mol = Chem.MolFromMolFile(file, removeHs=True)
+            if mol:
+                if not (mol.HasProp('_Name') and len(mol.GetProp('_Name').strip())):
+                    mol.SetProp('_Name',name)
                 yield mol
         elif file.endswith('.smi') or file.endswith('.smiles'):
             with open(file,'rt') as f:

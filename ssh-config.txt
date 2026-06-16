@@ -18,4 +18,5 @@ Server:
         -rw-r--r--  ~/.ssh/known_hosts
         -rw-------  ~/.Xauthority
 
+        drwxr-xr-x  /home/USER                  # important
 

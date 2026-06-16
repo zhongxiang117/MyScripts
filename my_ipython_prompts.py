@@ -58,7 +58,8 @@ def my_cmd_help(lines):
                 ndx = tmp.find('=')
                 if ndx != -1:
                     tmp = tmp[ndx+1:]
-                line = 'help('+tmp+')'
+                #line = 'help('+tmp+')'
+                line = tmp.strip() + '?'        # `strip` is must
         news.append(line)
     return news
 

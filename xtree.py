@@ -9,6 +9,7 @@ except ImportError:
     Fore = collections.namedtuple('Fore',[])
     setattr(Fore, 'BLUE', '\033[34m')
     setattr(Fore, 'GREEN', '\033[32m')
+    setattr(Fore, 'CYAN', '\033[36m')
     Style = collections.namedtuple('Style',[])
     setattr(Style, 'RESET_ALL', '\033[0m')
 
@@ -23,6 +24,7 @@ FEATURES = [
     'version 0.7.0  : options for `--show-only-dirs` & `--summary`',
     'version 0.8.0  : add options `--show-all` and `--show-all-all`',
     'version 0.9.0  : workaround for `colorama` module',
+    'version 0.10.0 : consider symbolic link',
 ]
 
 VERSION = FEATURES[-1].split()[1]
@@ -168,7 +170,9 @@ class Tree:
             new = '({:}) {:}'.format(size,file)
         else:
             new = file
-        if stat[3]:
+        if stat[3] == 'link':
+            return prefix+Fore.CYAN+new+Style.RESET_ALL
+        elif stat[3]:
             return prefix+Fore.GREEN+new+Style.RESET_ALL
         return prefix+new
 
@@ -233,7 +237,10 @@ class Tree:
             for f in filenames:
                 file = os.path.join(dirpath,f)
                 p = os.stat(file)
-                g[f] = (p.st_size,p.st_mtime,p.st_ctime,os.access(file,os.X_OK))
+                if os.path.islink(file):
+                    g[f] = (p.st_size,p.st_mtime,p.st_ctime,'link')
+                else:
+                    g[f] = (p.st_size,p.st_mtime,p.st_ctime,os.access(file,os.X_OK))
                 total += p.st_size
             d = os.stat(dirpath)
             g['/\\arch'] = (total,d.st_mtime,d.st_ctime,len(dirnames),len(filenames))

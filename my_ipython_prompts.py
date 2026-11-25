@@ -75,5 +75,9 @@ if 'schrodinger' in sys.prefix.lower():
 ip.input_transformers_cleanup.append(my_cmd_help)
 
 
+# remove `ipython` executable path
+if sys.path[1].endswith('/bin'):        # CWD is inserted
+    sys.path.remove(sys.path[1])
+
 
 

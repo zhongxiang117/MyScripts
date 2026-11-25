@@ -47,6 +47,7 @@ FEATURES = [
     'version 0.10.0   : fully remove blank lines',
     'version 0.11.0   : fix errors in continuous OP',
     'version 0.12.0   : rewrite `reduce_operators`',
+    'version 0.13.0   : `-i`, include files',
 ]
 
 __version__ = FEATURES[-1].split()[1]
@@ -435,7 +436,7 @@ def enumerate_local_modules(path,include_files=None,strip=False):
                 module = os.path.join(root,f)
                 local_modules.add(module)
     os.chdir(old)
-    return list(local_modules)
+    return list(sorted(local_modules))
 
 
 def _zip_packall(fileobjs,precompile=True,compress_only=None):
@@ -608,6 +609,7 @@ def main():
     parser.add_argument(
         '-i', '--include-files',
         dest='include_files',
+        metavar='f',
         nargs='+',
         help='include additional files, such as README or data file'
     )
@@ -666,6 +668,10 @@ def main():
                 k = os.path.normpath(os.path.join(i,j))
                 if k not in files:
                     files.append(k)
+    if args.include_files:
+        for f in args.include_files:
+            if os.path.isfile(f):
+                files.append(os.path.normpath(f))
 
     if args.list_modules:
         print('\nNote: going to include files:')
